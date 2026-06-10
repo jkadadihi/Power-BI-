@@ -1,0 +1,17 @@
+// CASH COLLECTION MEASURES
+// Requires payments_collected_eur column in source data
+
+Payments Collected =
+SUM(fact_ar_performance[payments_collected_eur])
+
+Payments Collected PM =
+CALCULATE([Payments Collected],PREVIOUSMONTH(dim_date[date]))
+
+Payments MoM Change =
+[Payments Collected]-[Payments Collected PM]
+
+Payments MoM Change % =
+DIVIDE([Payments MoM Change],[Payments Collected PM])
+
+Collection Rate =
+DIVIDE([Payments Collected],[Overdue Amount PM])

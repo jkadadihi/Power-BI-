@@ -1,0 +1,43 @@
+// OVERDUE & AGING MEASURES
+
+AR Total =
+SUM(fact_ar_performance[ar_eur])
+
+Overdue Amount =
+SUM(fact_ar_performance[overdue_eur])
+
+GT60 Amount =
+SUM(fact_ar_performance[gt60_eur])
+
+GT90 Amount =
+SUM(fact_ar_performance[gt90_eur])
+
+Overdue % =
+DIVIDE([Overdue Amount],[AR Total])
+
+GT60 % =
+DIVIDE([GT60 Amount],[AR Total])
+
+GT90 % =
+DIVIDE([GT90 Amount],[AR Total])
+
+Overdue Amount PM =
+CALCULATE([Overdue Amount],PREVIOUSMONTH(dim_date[date]))
+
+Overdue % PM =
+CALCULATE([Overdue %],PREVIOUSMONTH(dim_date[date]))
+
+GT90 Amount PM =
+CALCULATE([GT90 Amount],PREVIOUSMONTH(dim_date[date]))
+
+Overdue MoM Change EUR =
+[Overdue Amount]-[Overdue Amount PM]
+
+Overdue MoM Change Pct =
+[Overdue %]-[Overdue % PM]
+
+GT90 MoM Change EUR =
+[GT90 Amount]-[GT90 Amount PM]
+
+Overdue Impact Rank =
+RANKX(ALL(fact_ar_performance[customer]),[Overdue Amount],,DESC,DENSE)

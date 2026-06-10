@@ -1,0 +1,21 @@
+// DSO MEASURES
+
+DSO =
+VAR TotalAR = SUM(fact_ar_performance[ar_eur])
+RETURN DIVIDE(SUMX(fact_ar_performance,fact_ar_performance[dso]*fact_ar_performance[ar_eur]),TotalAR)
+
+DSO PM =
+CALCULATE([DSO],PREVIOUSMONTH(dim_date[date]))
+
+DSO MoM Change =
+[DSO]-[DSO PM]
+
+DSO Trend Indicator =
+VAR delta=[DSO MoM Change]
+RETURN SWITCH(TRUE(),delta>2,"Worsening",delta<-2,"Improving","Stable")
+
+DSO Impact =
+[DSO]-[DSO PM]
+
+DSO Impact Rank =
+RANKX(ALL(fact_ar_performance[customer]),[DSO Impact],,DESC,DENSE)
