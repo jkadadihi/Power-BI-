@@ -1,0 +1,67 @@
+// ═══════════════════════════════════════════════════════════════
+//  DSO MEASURES
+// ═══════════════════════════════════════════════════════════════
+
+// Weighted-average DSO across selected customers/period
+DSO =
+VAR TotalAR = SUM(fact_ar_performance[ar_eur])
+RETURN
+    DIVIDE(
+        SUMX(fact_ar_performance, fact_ar_performance[dso] * fact_ar_performance[ar_eur]),
+        TotalAR
+    )
+
+
+// DSO for the previous calendar month
+DSO PM =
+CALCULATE(
+    [DSO],
+    PREVIOUSMONTH(dim_date[date])
+)
+
+
+// Absolute MoM change
+DSO MoM Change =
+[DSO] - [DSO PM]
+
+
+// MoM change formatted with sign ("+2.3" / "-1.1")
+DSO MoM Change Label =
+VAR delta = [DSO MoM Change]
+RETURN
+    IF(
+        ISBLANK(delta), BLANK(),
+        IF(delta >= 0, "+" & FORMAT(delta, "0.0"), FORMAT(delta, "0.0"))
+    )
+
+
+// Positive = bad (DSO went up), negative = good
+DSO Trend Indicator =
+VAR delta = [DSO MoM Change]
+RETURN
+    SWITCH(
+        TRUE(),
+        delta > 2,   "▲ Worsening",
+        delta < -2,  "▼ Improving",
+                     "→ Stable"
+    )
+
+
+// Customer contribution to DSO change (for Top Contributors table)
+// Higher value = customer drove DSO increase the most
+DSO Impact =
+VAR CurrentDSO = [DSO]
+VAR PrevDSO    = [DSO PM]
+RETURN
+    CurrentDSO - PrevDSO
+
+
+// Top N customers by DSO impact (use as visual-level filter measure)
+DSO Impact Rank =
+RANKX(
+    ALL(fact_ar_performance[customer]),
+    [DSO Impact],
+    ,
+    DESC,
+    DENSE
+)
