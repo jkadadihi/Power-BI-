@@ -532,13 +532,16 @@ def build_report_layout(model_id="AMKAD_OTC"):
             build_page("ppt_page",   "PPT Export",        p4_visuals, 3),
         ],
         "config": json.dumps({
-            "version": "5.49",
-            "themeCollection": {"baseTheme": {"name": "CY24SU05", "version": "5.49"}},
+            "version": "5.43",
+            "themeCollection": {"baseTheme": {"name": "CY24SU02"}},
             "activeSectionIndex": 0,
-            "defaultDrillFilterOtherVisuals": True
+            "defaultDrillFilterOtherVisuals": True,
+            "linguisticSchemaSyncVersion": 0
         }),
         "filters": "[]",
-        "layoutOptimization": 0
+        "layoutOptimization": 0,
+        "layoutVersion": 5,
+        "themeCollection": {"baseTheme": {"name": "CY24SU02"}}
     }
     return layout
 
@@ -559,7 +562,7 @@ CONTENT_TYPES = """<?xml version="1.0" encoding="utf-8"?>
 </Types>"""
 
 METADATA = json.dumps({
-    "version": "4.0",
+    "version": "3.0",
     "createdFromTemplate": False,
     "description": "DHL AMKAD OTC/SPR AR Reporting Template",
     "author": "AMKAD Finance Ops",
