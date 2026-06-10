@@ -577,7 +577,16 @@ DIAGRAM_LAYOUT = json.dumps({
 })
 
 SECURITY_BINDINGS = b""
-VERSION = b"4.0"
+VERSION = "3.0"
+
+
+def _utf16(s: str) -> bytes:
+    """Power BI .pbit internal text files are UTF-16 LE with BOM."""
+    return s.encode("utf-16-le")
+
+
+def _utf16_bom(s: str) -> bytes:
+    return b"\xff\xfe" + s.encode("utf-16-le")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -590,13 +599,15 @@ def write_pbit(output_path: str):
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # [Content_Types].xml is the only text file kept as UTF-8.
         zf.writestr("[Content_Types].xml",  CONTENT_TYPES)
-        zf.writestr("DataModelSchema",      json.dumps(schema,  ensure_ascii=False, indent=2))
-        zf.writestr("DiagramLayout",        DIAGRAM_LAYOUT)
-        zf.writestr("Metadata",             METADATA)
-        zf.writestr("Report/Layout",        json.dumps(layout,  ensure_ascii=False, indent=2))
+        # All other Power BI text files must be UTF-16 LE (no BOM).
+        zf.writestr("DataModelSchema",      _utf16(json.dumps(schema, ensure_ascii=False, indent=2)))
+        zf.writestr("DiagramLayout",        _utf16(DIAGRAM_LAYOUT))
+        zf.writestr("Metadata",             _utf16(METADATA))
+        zf.writestr("Report/Layout",        _utf16(json.dumps(layout, ensure_ascii=False, indent=2)))
         zf.writestr("SecurityBindings",     SECURITY_BINDINGS)
-        zf.writestr("Version",              VERSION)
+        zf.writestr("Version",              _utf16(VERSION))
 
     with open(output_path, "wb") as f:
         f.write(buf.getvalue())
