@@ -24,6 +24,13 @@
   --gray: #64748b;
   --purple: #7030a0;
   --good: #00843d;
+  /* Validated data-viz slots (light) — dataviz skill reference palette */
+  --series-1: #2a78d6; /* blue   */
+  --series-2: #eb6834; /* orange */
+  --series-3: #1baf7a; /* aqua   */
+  --series-4: #4a3aa7; /* violet */
+  --seq-100: #cde2fb; --seq-250: #86b6ef; --seq-400: #3987e5; --seq-550: #1c5cab; --seq-700: #0d366b;
+  --status-good: #0ca30c; --status-warning: #fab219; --status-serious: #ec835a; --status-critical: #d03b3b;
   --radius: 16px;
   --radius-sm: 10px;
   --shadow-sm: 0 1px 2px rgba(16,24,40,0.06), 0 1px 3px rgba(16,24,40,0.10);
@@ -47,6 +54,13 @@
   --gray: #94a3b8;
   --purple: #b98ce0;
   --good: #4cc27a;
+  /* Validated data-viz slots (dark) — stepped for the dark surface */
+  --series-1: #3987e5; /* blue   */
+  --series-2: #d95926; /* orange */
+  --series-3: #199e70; /* aqua   */
+  --series-4: #9085e9; /* violet */
+  --seq-100: #104281; --seq-250: #184f95; --seq-400: #256abf; --seq-550: #3987e5; --seq-700: #86b6ef;
+  --status-good: #0ca30c; --status-warning: #fab219; --status-serious: #ec835a; --status-critical: #d03b3b;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
   --shadow-md: 0 4px 14px rgba(0,0,0,0.45);
   --shadow-lg: 0 18px 44px rgba(0,0,0,0.55);
@@ -626,7 +640,130 @@ mark.search-hit {
 
 #backToTop.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
 
+/* ===== Executive hero band ===== */
+.hero {
+  position: relative;
+  border-radius: 20px;
+  padding: 26px 28px;
+  margin-bottom: 24px;
+  background:
+    radial-gradient(900px 300px at 100% 0%, rgba(255,204,0,0.14), transparent 55%),
+    linear-gradient(160deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.hero::after {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+  background: linear-gradient(var(--dhl-yellow), var(--dhl-red));
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 28px;
+  align-items: center;
+}
+.hero-label {
+  font-size: 12.5px; font-weight: 800; letter-spacing: .8px;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.hero-value {
+  font-size: 46px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.05;
+  margin: 6px 0 10px 0; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.hero-sub { font-size: 13px; color: var(--ink-soft); }
+
+.delta-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 13px; font-weight: 800;
+  border: 1px solid transparent;
+}
+.delta-up-bad   { background: rgba(208,59,59,0.12);  color: var(--status-critical); border-color: rgba(208,59,59,0.28); }
+.delta-down-good{ background: rgba(12,163,12,0.12);  color: var(--status-good);     border-color: rgba(12,163,12,0.28); }
+.delta-flat     { background: var(--surface-2);       color: var(--ink-soft);        border-color: var(--line); }
+
+.spark-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+.spark-tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.spark-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.spark-tile-label { font-size: 11.5px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .4px; }
+.spark-tile-value { font-size: 20px; font-weight: 800; margin: 4px 0 2px 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.spark-svg { width: 100%; height: 34px; display: block; margin-top: 4px; }
+.spark-tile-delta { font-size: 11.5px; font-weight: 700; margin-top: 2px; }
+
+/* ===== Aging composition ===== */
+.composition {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+}
+.comp-bar {
+  display: flex; width: 100%; height: 34px;
+  border-radius: 10px; overflow: hidden; margin: 14px 0 16px 0;
+  background: var(--surface-2);
+  gap: 2px; /* 2px surface gap between segments */
+}
+.comp-seg { height: 100%; transition: filter .15s; cursor: default; }
+.comp-seg:hover { filter: brightness(1.08); }
+.comp-legend { display: flex; flex-wrap: wrap; gap: 16px 22px; }
+.comp-key { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.comp-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.comp-key-val { font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.comp-key-lab { color: var(--ink-soft); }
+
+/* ===== Horizontal ranking bars ===== */
+.rank-row { display: grid; grid-template-columns: 46px 1fr; gap: 12px; align-items: center; margin-bottom: 11px; }
+.rank-name { font-weight: 700; font-size: 13px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.rank-track { position: relative; background: var(--surface-2); border-radius: 8px; height: 26px; overflow: hidden; }
+.rank-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; transition: width .6s cubic-bezier(.2,.7,.3,1); }
+.rank-fill-ar { background: var(--seq-250); }
+.rank-fill-overdue { background: var(--series-2); opacity: .92; }
+.rank-val { position: absolute; right: 10px; top: 0; height: 26px; display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ===== Risk heatmap ===== */
+.heatmap-wrap { overflow-x: auto; }
+.heatmap { border-collapse: separate; border-spacing: 3px; width: 100%; }
+.heatmap th { font-size: 11.5px; color: var(--ink-soft); font-weight: 700; padding: 4px 8px; text-align: center; white-space: nowrap; }
+.heatmap td.hm-row-label { font-weight: 700; color: var(--ink); text-align: left; font-size: 12.5px; padding-right: 10px; white-space: nowrap; }
+.heatmap td.hm-cell {
+  text-align: center; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding: 8px 10px; border-radius: 7px; min-width: 62px; cursor: default;
+  transition: transform .12s;
+}
+.heatmap td.hm-cell:hover { transform: scale(1.06); }
+
+/* ===== Section subtitle ===== */
+.section-note { font-size: 13px; color: var(--ink-soft); margin: -8px 0 16px 0; max-width: 780px; }
+
+/* ===== Shared chart tooltip ===== */
+#vizTooltip {
+  position: fixed; z-index: 60; pointer-events: none;
+  background: var(--ink); color: var(--surface);
+  padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  box-shadow: var(--shadow-md); opacity: 0; transform: translateY(4px);
+  transition: opacity .12s, transform .12s; white-space: nowrap; max-width: 260px;
+}
+#vizTooltip.show { opacity: 1; transform: translateY(0); }
+[data-theme="dark"] #vizTooltip { background: #000; color: #fff; border: 1px solid var(--line); }
+
 @media (max-width: 900px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .spark-row { grid-template-columns: repeat(2, 1fr); }
   .kpi-grid, .chart-grid, .filter-grid, .simulator-grid, .trend-meta {
     grid-template-columns: 1fr !important;
   }
@@ -722,6 +859,17 @@ mark.search-hit {
   </div>
 
   <div class="section tab-content active" id="overview">
+    <div class="hero" id="execHero">
+      <div class="hero-grid">
+        <div>
+          <div class="hero-label">Total Accounts Receivable</div>
+          <div class="hero-value" id="heroValue">@{outputs('Run_script')?['body/result']?['TotalAR']}</div>
+          <div class="hero-sub" id="heroSub">Latest snapshot @{outputs('Run_script')?['body/result']?['LatestSnapshotDate']}</div>
+        </div>
+        <div class="spark-row" id="sparkRow"></div>
+      </div>
+    </div>
+
     <div class="section-title">Executive KPI Summary</div>
 
     <div class="kpi-grid">
@@ -762,6 +910,13 @@ mark.search-hit {
       </div>
     </div>
 
+    <div class="section-title" style="margin-top:32px;">Aging Composition of Total AR</div>
+    <div class="section-note">How the current Total AR breaks down by age band. Each segment is a disjoint slice — Current, then 0–60, 60–90, and 90+ days overdue.</div>
+    <div class="composition">
+      <div class="comp-bar" id="compBar"></div>
+      <div class="comp-legend" id="compLegend"></div>
+    </div>
+
     <div class="section-title" style="margin-top:32px;">Aging Risk Indicators</div>
 
     <div class="chart-grid">
@@ -796,6 +951,16 @@ mark.search-hit {
           <div class="bar-fill gt90" style="width:@{outputs('Run_script')?['body/result']?['GT90Pct']};"></div>
         </div>
         <div>Share of Total AR greater than 90 days.</div>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top:32px;">Top Countries by Total AR</div>
+    <div class="section-note">Ranked by latest-snapshot Total AR. The orange overlay shows the overdue portion within each country's balance.</div>
+    <div class="composition">
+      <div id="countryRanking"></div>
+      <div class="comp-legend" style="margin-top:14px;">
+        <div class="comp-key"><span class="comp-swatch" style="background:var(--seq-250);"></span><span class="comp-key-lab">Total AR</span></div>
+        <div class="comp-key"><span class="comp-swatch" style="background:var(--series-2);"></span><span class="comp-key-lab">of which Overdue</span></div>
       </div>
     </div>
 
@@ -837,6 +1002,12 @@ mark.search-hit {
   </div>
 
   <div class="section tab-content" id="countries">
+    <div class="section-title">Country Risk Heatmap</div>
+    <div class="section-note">Aging and unapplied-cash intensity by country (latest snapshot). Darker cells are higher risk; the border colour flags Watch and High thresholds. Countries with zero AR are omitted.</div>
+    <div class="composition" style="margin-bottom:26px;">
+      <div class="heatmap-wrap"><table class="heatmap" id="riskHeatmap"></table></div>
+    </div>
+
     <div class="section-title">Country Summary</div>
 
     @{outputs('Run_script')?['body/result']?['CountrySummaryTable']}
@@ -1165,6 +1336,7 @@ mark.search-hit {
 </div>
 
 <button id="backToTop" onclick="scrollToTop()" title="Back to top" aria-label="Back to top">↑</button>
+<div id="vizTooltip"></div>
 
 <script>
 const currentData = {
@@ -1274,6 +1446,8 @@ function toggleTheme() {
   if (trendsActive && trendsActive.classList.contains("active")) {
     renderAllCharts();
   }
+  // Executive viz reads colors from CSS vars at render time — re-render on toggle.
+  if (typeof renderExecutiveViz === "function") renderExecutiveViz();
 }
 
 function initTheme() {
@@ -1965,6 +2139,278 @@ function downloadTableCsv(tableId, filename) {
   URL.revokeObjectURL(url);
 }
 
+/* ============================================================
+   Executive visualization layer — rendered client-side from the
+   JSON the Office Script already emits (trendData, currentData,
+   countryDrilldownData). No extra Power Automate bindings needed.
+   ============================================================ */
+
+function cssVar(name) {
+  try {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888";
+  } catch (e) { return "#888"; }
+}
+
+function showTip(html, x, y) {
+  const tip = document.getElementById("vizTooltip");
+  if (!tip) return;
+  tip.innerHTML = html;
+  tip.classList.add("show");
+  const pad = 14;
+  let left = x + pad;
+  let top = y + pad;
+  const rect = tip.getBoundingClientRect();
+  if (left + rect.width > window.innerWidth - 8) left = x - rect.width - pad;
+  if (top + rect.height > window.innerHeight - 8) top = y - rect.height - pad;
+  tip.style.left = left + "px";
+  tip.style.top = top + "px";
+}
+
+function hideTip() {
+  const tip = document.getElementById("vizTooltip");
+  if (tip) tip.classList.remove("show");
+}
+
+function bindTip(el, html) {
+  el.addEventListener("mousemove", e => showTip(html, e.clientX, e.clientY));
+  el.addEventListener("mouseleave", hideTip);
+}
+
+function animateCount(el, target, formatter) {
+  if (!el) return;
+  const duration = 900;
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    el.textContent = formatter(target * eased);
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// Series helpers over trendData
+function seriesOf(field) {
+  return (trendData || []).map(d => d[field]).filter(v => isFinite(v));
+}
+
+function deltaChip(change, lowerIsBetter, formatted) {
+  let cls = "delta-flat";
+  let arrow = "→";
+  if (Math.abs(change) > 1e-9) {
+    const isUp = change > 0;
+    arrow = isUp ? "▲" : "▼";
+    const good = lowerIsBetter ? !isUp : isUp;
+    cls = good ? "delta-down-good" : "delta-up-bad";
+  }
+  return '<span class="delta-chip ' + cls + '">' + arrow + " " + formatted + "</span>";
+}
+
+function sparkline(values, color, lowerIsBetter) {
+  if (!values || values.length < 2) return "";
+  const w = 120, h = 34, pad = 3;
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = Math.max(max - min, 1e-9);
+  const pts = values.map((v, i) => {
+    const x = pad + (i * (w - 2 * pad)) / (values.length - 1);
+    const y = h - pad - ((v - min) / range) * (h - 2 * pad);
+    return x.toFixed(1) + "," + y.toFixed(1);
+  });
+  const last = pts[pts.length - 1].split(",");
+  const areaFill = hexToRgba(color, 0.14);
+  const baseY = h - pad;
+  return '<svg class="spark-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+    '<polygon points="' + pad + ',' + baseY + ' ' + pts.join(" ") + ' ' + (w - pad) + ',' + baseY + '" fill="' + areaFill + '"/>' +
+    '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="2.6" fill="' + color + '"/></svg>';
+}
+
+function renderSparkTiles() {
+  const row = document.getElementById("sparkRow");
+  if (!row) return;
+
+  const tiles = [
+    { label: "Overdue %", field: "overduePct", fmt: pct, color: cssVar("--series-2"), lowerIsBetter: true },
+    { label: "GT60 %", field: "gt60Pct", fmt: pct, color: cssVar("--series-4"), lowerIsBetter: true },
+    { label: "GT90 %", field: "gt90Pct", fmt: pct, color: cssVar("--status-critical"), lowerIsBetter: true },
+    { label: "UAC %", field: "uacPct", fmt: pct, color: cssVar("--series-3"), lowerIsBetter: true },
+    { label: "Payments", field: "payments", fmt: euro, color: cssVar("--series-1"), lowerIsBetter: false }
+  ];
+
+  row.innerHTML = tiles.map(t => {
+    const vals = seriesOf(t.field);
+    if (vals.length === 0) return "";
+    const latest = vals[vals.length - 1];
+    const prev = vals.length > 1 ? vals[vals.length - 2] : latest;
+    const change = latest - prev;
+    let changeText;
+    if (t.fmt === pct) {
+      changeText = (change >= 0 ? "+" : "") + (change * 100).toFixed(1) + " pts";
+    } else {
+      changeText = (change < 0 ? "-€" : "+€") + Math.round(Math.abs(change)).toLocaleString("en-US");
+    }
+    return '<div class="spark-tile">' +
+      '<div class="spark-tile-label">' + t.label + '</div>' +
+      '<div class="spark-tile-value">' + t.fmt(latest) + '</div>' +
+      sparkline(vals, t.color, t.lowerIsBetter) +
+      '<div class="spark-tile-delta">' + deltaChip(change, t.lowerIsBetter, changeText) + '</div>' +
+      '</div>';
+  }).join("");
+}
+
+function renderHero() {
+  const heroEl = document.getElementById("heroValue");
+  if (heroEl && isFinite(currentData.totalAR)) {
+    animateCount(heroEl, currentData.totalAR, euro);
+  }
+  const subEl = document.getElementById("heroSub");
+  if (subEl) {
+    // Capture the static base text once so repeated renders (theme toggle)
+    // rebuild rather than accumulate the MoM chip.
+    if (!subEl.getAttribute("data-base")) {
+      subEl.setAttribute("data-base", subEl.textContent.trim());
+    }
+    let html = subEl.getAttribute("data-base");
+    const arVals = seriesOf("totalAR");
+    if (arVals.length > 1) {
+      const change = arVals[arVals.length - 1] - arVals[arVals.length - 2];
+      const changeText = (change < 0 ? "-€" : "+€") + Math.round(Math.abs(change)).toLocaleString("en-US");
+      html += " &nbsp;·&nbsp; MoM " + deltaChip(change, false, changeText);
+    }
+    subEl.innerHTML = html;
+  }
+  renderSparkTiles();
+}
+
+function renderComposition() {
+  const bar = document.getElementById("compBar");
+  const legend = document.getElementById("compLegend");
+  if (!bar || !legend) return;
+
+  const ar = currentData.totalAR;
+  const overdue = currentData.overdue;
+  const gt60 = currentData.gt60;
+  const gt90 = currentData.gt90;
+  if (!(ar > 0)) { bar.innerHTML = ""; legend.innerHTML = "No AR to break down."; return; }
+
+  // Disjoint age bands (buckets are cumulative: overdue ⊇ gt60 ⊇ gt90)
+  const bands = [
+    { label: "Current (not overdue)", value: Math.max(ar - overdue, 0), color: cssVar("--status-good") },
+    { label: "0–60 days overdue", value: Math.max(overdue - gt60, 0), color: cssVar("--status-warning") },
+    { label: "60–90 days overdue", value: Math.max(gt60 - gt90, 0), color: cssVar("--status-serious") },
+    { label: "90+ days overdue", value: Math.max(gt90, 0), color: cssVar("--status-critical") }
+  ];
+
+  bar.innerHTML = bands.map(b => {
+    const w = (b.value / ar) * 100;
+    if (w <= 0) return "";
+    return '<div class="comp-seg" data-label="' + b.label + '" style="width:' + w.toFixed(2) + '%;background:' + b.color + ';"></div>';
+  }).join("");
+
+  bar.querySelectorAll(".comp-seg").forEach((seg, i) => {
+    const b = bands.filter(x => x.value > 0)[i];
+    if (b) bindTip(seg, "<strong>" + b.label + "</strong><br>" + euro(b.value) + " · " + pct(b.value / ar));
+  });
+
+  legend.innerHTML = bands.map(b =>
+    '<div class="comp-key"><span class="comp-swatch" style="background:' + b.color + ';"></span>' +
+    '<span class="comp-key-val">' + euro(b.value) + '</span>&nbsp;' +
+    '<span class="comp-key-lab">' + b.label + ' (' + pct(b.value / ar) + ')</span></div>'
+  ).join("");
+}
+
+function renderCountryRanking() {
+  const host = document.getElementById("countryRanking");
+  if (!host || typeof countryDrilldownData === "undefined") return;
+
+  const rows = countryDrilldownData
+    .filter(c => c.totalAR > 0)
+    .sort((a, b) => b.totalAR - a.totalAR)
+    .slice(0, 10);
+
+  if (rows.length === 0) { host.innerHTML = "No country data available."; return; }
+  const max = rows[0].totalAR;
+
+  host.innerHTML = rows.map(c => {
+    const arW = (c.totalAR / max) * 100;
+    const odW = (Math.max(c.overdue, 0) / max) * 100;
+    return '<div class="rank-row">' +
+      '<div class="rank-name">' + c.country + '</div>' +
+      '<div class="rank-track" data-country="' + c.country + '">' +
+      '<div class="rank-fill rank-fill-ar" style="width:' + arW.toFixed(2) + '%"></div>' +
+      '<div class="rank-fill rank-fill-overdue" style="width:' + odW.toFixed(2) + '%"></div>' +
+      '<div class="rank-val">' + euro(c.totalAR) + '</div>' +
+      '</div></div>';
+  }).join("");
+
+  host.querySelectorAll(".rank-track").forEach(track => {
+    const c = rows.find(x => x.country === track.getAttribute("data-country"));
+    if (c) bindTip(track, "<strong>" + c.country + "</strong><br>Total AR " + euro(c.totalAR) +
+      "<br>Overdue " + euro(c.overdue) + " (" + pct(c.overduePct) + ")<br>Gross Sales " + euro(c.grossSales));
+  });
+}
+
+function heatColor(ratio, baseHex) {
+  // ratio 0..1 → light surface-ish to full base hue
+  const clamped = Math.max(0, Math.min(1, ratio));
+  return hexToRgba(baseHex, 0.12 + clamped * 0.78);
+}
+
+function renderHeatmap() {
+  const table = document.getElementById("riskHeatmap");
+  if (!table || typeof countryDrilldownData === "undefined") return;
+
+  const rows = countryDrilldownData
+    .filter(c => c.totalAR > 0)
+    .sort((a, b) => b.totalAR - a.totalAR);
+  if (rows.length === 0) { table.innerHTML = "<tr><td>No country data.</td></tr>"; return; }
+
+  const cols = [
+    { key: "overduePct", label: "Overdue %" },
+    { key: "gt60Pct", label: "GT60 %" },
+    { key: "gt90Pct", label: "GT90 %" },
+    { key: "uacPct", label: "UAC %" }
+  ];
+  const base = cssVar("--seq-550");
+
+  // Column-wise max for normalization (cap negatives at 0)
+  const colMax = {};
+  cols.forEach(col => {
+    colMax[col.key] = Math.max.apply(null, rows.map(r => Math.max(r[col.key] || 0, 0)).concat([0.0001]));
+  });
+
+  let html = "<thead><tr><th style='text-align:left;'>Country</th>";
+  cols.forEach(col => { html += "<th>" + col.label + "</th>"; });
+  html += "</tr></thead><tbody>";
+
+  rows.forEach(r => {
+    html += "<tr><td class='hm-row-label'>" + r.country + "</td>";
+    cols.forEach(col => {
+      const raw = r[col.key] || 0;
+      const ratio = Math.max(raw, 0) / colMax[col.key];
+      const bg = heatColor(ratio, base);
+      const strong = ratio > 0.55;
+      const textColor = strong ? "#fff" : "var(--ink)";
+      html += "<td class='hm-cell' data-tip='" + r.country + " · " + col.label + ": " + pct(raw) +
+        "' style='background:" + bg + ";color:" + textColor + ";'>" + pct(raw) + "</td>";
+    });
+    html += "</tr>";
+  });
+  html += "</tbody>";
+  table.innerHTML = html;
+
+  table.querySelectorAll(".hm-cell").forEach(cell => {
+    bindTip(cell, "<strong>" + cell.getAttribute("data-tip") + "</strong>");
+  });
+}
+
+function renderExecutiveViz() {
+  safeRender(renderHero);
+  safeRender(renderComposition);
+  safeRender(renderCountryRanking);
+  safeRender(renderHeatmap);
+}
+
 function init() {
   // Each step is isolated so a failure in a sandboxed viewer can't abort the rest.
   safeRender(initTheme);
@@ -1972,6 +2418,7 @@ function init() {
   safeRender(initTabKeyboardNav);
   safeRender(initSortableTables);
   safeRender(initBackToTop);
+  safeRender(renderExecutiveViz);
 
   // Open the tab referenced in the URL hash (deep-link), if any.
   safeRender(() => {
