@@ -722,6 +722,15 @@ function main(workbook: ExcelScript.Workbook) {
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Same-Month YoY Comparison (${escapeHtml(yoyMonths[0])} vs prior years)</div>
       <table class="customer-matrix searchable-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>${escapeHtml(yoyMonths[0])}</th>
+            <th>${escapeHtml(yoyMonths[1])}</th>
+            <th>${escapeHtml(yoyMonths[2])}</th>
+            <th>YoY Trend</th>
+          </tr>
+        </thead>
         <tbody>
           ${["Total AR", "Total Overdue", "Overdue %", "GT60 %", "GT90 %", "Gross Sales", "Total UAC", "UAC % of AR"].map(metric => `
             <tr>
@@ -740,6 +749,18 @@ function main(workbook: ExcelScript.Workbook) {
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Country Summary — ${escapeHtml(latestMonth)}</div>
       <table class="customer-matrix searchable-table" id="countrySummaryTable">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th>Total AR</th>
+            <th>Overdue</th>
+            <th>Overdue %</th>
+            <th>GT60 %</th>
+            <th>GT90 %</th>
+            <th>Gross Sales</th>
+            <th>Status</th>
+          </tr>
+        </thead>
         <tbody>
           ${Object.keys(countryData).filter(c => countryData[c][latestMonth]).map(country => {
     const agg = countryData[country][latestMonth];
@@ -762,6 +783,18 @@ function main(workbook: ExcelScript.Workbook) {
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Top 10 Customers by GT90 Amount — ${escapeHtml(latestMonth)}</div>
       <table class="customer-matrix searchable-table" id="topRiskTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Country</th>
+            <th>Customer</th>
+            <th>Total AR</th>
+            <th>Overdue</th>
+            <th>GT60</th>
+            <th>GT90</th>
+            <th>GT90 %</th>
+          </tr>
+        </thead>
         <tbody>
           ${Object.keys(customerCountryData).filter(k => customerCountryData[k].months[latestMonth]).sort((a, b) => customerCountryData[b].months[latestMonth].gt90 - customerCountryData[a].months[latestMonth].gt90).slice(0, 10).map((key, i) => {
     const item = customerCountryData[key];
@@ -776,6 +809,19 @@ function main(workbook: ExcelScript.Workbook) {
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Top 10 Customers by UAC — ${escapeHtml(latestMonth)}</div>
       <table class="customer-matrix searchable-table" id="topUACTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Country</th>
+            <th>Customer</th>
+            <th>Total AR</th>
+            <th>UAC</th>
+            <th>UAC %</th>
+            <th>Overdue</th>
+            <th>Net Overdue</th>
+            <th>Payments</th>
+          </tr>
+        </thead>
         <tbody>
           ${Object.keys(customerCountryData).filter(k => customerCountryData[k].months[latestMonth]).sort((a, b) => customerCountryData[b].months[latestMonth].uac - customerCountryData[a].months[latestMonth].uac).slice(0, 10).map((key, i) => {
     const item = customerCountryData[key];
@@ -790,6 +836,17 @@ function main(workbook: ExcelScript.Workbook) {
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Country UAC Summary — ${escapeHtml(latestMonth)}</div>
       <table class="customer-matrix searchable-table" id="uacCountryTable">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th>Total AR</th>
+            <th>UAC</th>
+            <th>UAC %</th>
+            <th>Overdue</th>
+            <th>Payments</th>
+            <th>Status</th>
+          </tr>
+        </thead>
         <tbody>
           ${Object.keys(countryData).filter(c => countryData[c][latestMonth]).map(country => {
     const agg = countryData[country][latestMonth];
@@ -804,6 +861,17 @@ function main(workbook: ExcelScript.Workbook) {
     <div class="customer-table-wrapper">
       <div class="customer-table-title">UAC Exceptions / Action Required — ${escapeHtml(latestMonth)}</div>
       <table class="customer-matrix searchable-table" id="uacExceptionsTable">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th>Customer</th>
+            <th>UAC</th>
+            <th>UAC %</th>
+            <th>Overdue</th>
+            <th>Net Overdue</th>
+            <th>Action</th>
+          </tr>
+        </thead>
         <tbody>
           ${Object.keys(customerCountryData).filter(k => customerCountryData[k].months[latestMonth]).slice(0, 15).map(key => {
     const item = customerCountryData[key];
@@ -814,12 +882,80 @@ function main(workbook: ExcelScript.Workbook) {
       </table>
     </div>` : "";
 
+  // Build a real, ranked list of items that breach the High thresholds.
+  type ActionItem = { country: string; customer: string; totalAR: number; overdue: number; overduePct: number; gt90Pct: number; uacPct: number; reason: string; severity: number };
+
+  const actionItems: ActionItem[] = [];
+
+  Object.keys(customerCountryData)
+    .filter(k => customerCountryData[k].months[latestMonth])
+    .forEach(key => {
+      const item = customerCountryData[key];
+      const agg = item.months[latestMonth];
+      if (agg.totalAR <= 0) return;
+
+      const overdueP = pct(agg.overdue, agg.totalAR);
+      const gt60P = pct(agg.gt60, agg.totalAR);
+      const gt90P = pct(agg.gt90, agg.totalAR);
+      const uacP = pct(agg.uac, agg.totalAR);
+
+      const reasons: string[] = [];
+      if (overdueP >= highOverduePct) reasons.push("Overdue % over threshold");
+      if (gt60P >= highGT60Pct) reasons.push("GT60 % over threshold");
+      if (gt90P >= highGT90Pct) reasons.push("GT90 % over threshold");
+      if (uacP >= highUACPct) reasons.push("High unapplied cash");
+
+      if (reasons.length === 0) return;
+
+      actionItems.push({
+        country: item.country,
+        customer: item.customer,
+        totalAR: agg.totalAR,
+        overdue: agg.overdue,
+        overduePct: overdueP,
+        gt90Pct: gt90P,
+        uacPct: uacP,
+        reason: reasons.join("; "),
+        severity: agg.overdue
+      });
+    });
+
+  actionItems.sort((a, b) => b.severity - a.severity);
+  const topActionItems = actionItems.slice(0, 20);
+
+  const actionRequiredRows = topActionItems.length > 0
+    ? topActionItems.map((item, i) => `<tr data-country="${escapeHtml(item.country)}" data-customer="${escapeHtml(item.customer)}">
+              <td>${i + 1}</td>
+              <td>${escapeHtml(item.country)}</td>
+              <td class="customer-name">${escapeHtml(item.customer)}</td>
+              <td>${formatCurrency(item.totalAR, currencySymbol)}</td>
+              <td>${formatCurrency(item.overdue, currencySymbol)}</td>
+              <td>${formatPercent(item.overduePct)}</td>
+              <td>${formatPercent(item.gt90Pct)}</td>
+              <td>${formatPercent(item.uacPct)}</td>
+              <td style="text-align:left;">${escapeHtml(item.reason)}</td>
+            </tr>`).join("")
+    : `<tr><td colspan="9">No customers currently breach the High-risk thresholds for ${escapeHtml(latestMonth)}.</td></tr>`;
+
   const actionRequiredTable = `
     <div class="customer-table-wrapper">
-      <div class="customer-table-title">Action Required / Exceptions</div>
+      <div class="customer-table-title">Action Required — Customers Breaching High-Risk Thresholds (${escapeHtml(latestMonth)})</div>
       <table class="customer-matrix searchable-table" id="actionRequiredTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Country</th>
+            <th>Customer</th>
+            <th>Total AR</th>
+            <th>Overdue</th>
+            <th>Overdue %</th>
+            <th>GT90 %</th>
+            <th>UAC %</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr><td colspan="5">Review high-risk countries and customers based on overdue, GT60, GT90, and UAC thresholds.</td></tr>
+          ${actionRequiredRows}
         </tbody>
       </table>
     </div>`;
@@ -852,7 +988,12 @@ function main(workbook: ExcelScript.Workbook) {
   const countryOptions = Object.keys(countryData).sort();
   const customerOptions = Object.keys(customerData).sort();
 
-  const trendData = months.slice().reverse().map(month => {
+  const trendData = months.slice().reverse()
+    // Drop months whose latest snapshot has no AR — these are missing/empty
+    // extracts (e.g. a month where no snapshot was captured) and would
+    // otherwise show as a false crash to zero in the trend charts.
+    .filter(month => (monthTotals[month] || blankAgg()).totalAR > 0)
+    .map(month => {
     const agg = monthTotals[month] || blankAgg();
     return {
       month,
