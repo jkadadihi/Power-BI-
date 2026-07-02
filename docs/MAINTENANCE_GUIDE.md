@@ -140,6 +140,43 @@ Change this at **year rollover**, or if the **file naming pattern changes**.
 > it is more reliable than SharePoint's "Date created", which resets whenever a
 > file is copied or re-uploaded and can make an old/template file look "newest".
 
+### 4D. The automated email (`power_automate/email_body.html`)
+
+The flow ends with a **Send an email (V2)** action. Its Body is **not** the
+full interactive report — email clients (especially Outlook) strip `<script>`
+and most CSS, so the tabs/charts/dark-mode would render broken. Instead the
+email is a short, email-safe KPI summary with a button linking to the real
+report file.
+
+**To update the email:**
+
+1. Edit `power_automate/email_body.html` in the repo.
+2. Copy the **entire** file.
+3. In Power Automate, open **Send an email (V2)** → click into **Body** →
+   click the **`</>` (code view)** button → select all → paste → **Save**.
+
+**How the link works:** the button and the plain-text fallback link both use
+an expression, not the dynamic-content picker:
+
+```
+@{outputs('Create_sharing_link_for_a_file_or_folder')?['body/link/webUrl']}
+```
+
+That pulls the URL straight from the **"Create sharing link for a file or
+folder"** action's output. If that action is ever renamed, this expression
+must be updated to match (spaces in the action name become underscores).
+
+**If the link doesn't work:**
+- Run the flow once, open **run history → "Create sharing link…" → Outputs**,
+  and confirm `link.webUrl` actually has a value. If it's empty, the problem
+  is that action, not the email.
+- If recipients get "access denied" when they click it, check that action's
+  **Scope** setting — "Organization" lets anyone at DHL open it; "Specific
+  people" restricts it.
+- Power Automate's code-view editor **strips some HTML on save** (comments,
+  some attributes). Always re-paste the **whole file** rather than editing a
+  fragment in place, so nothing drifts out of sync with what's in the repo.
+
 ---
 
 ## 5. Troubleshooting Playbook
@@ -197,6 +234,16 @@ Change this at **year rollover**, or if the **file naming pattern changes**.
   file with a misleading timestamp).
 - **Fix:** use the "which file is it using?" check in 4C; confirm the newest file
   in the folder is named with the correct date.
+
+### Symptom: the "Open the report" button/link in the email doesn't show or doesn't work
+- **Cause (most common):** Power Automate's code-view editor stripped some HTML on
+  save (this happens even when nothing looks wrong at a glance).
+- **Cause:** the sharing-link action produced no URL, or was renamed so the email's
+  expression no longer points at it.
+- **Fix:** re-paste the **entire** `power_automate/email_body.html` file into the
+  email Body (don't hand-edit a fragment). Then check run history →
+  **"Create sharing link…" → Outputs** to confirm `link.webUrl` has a real value.
+  See 4D for the full explanation.
 
 ---
 

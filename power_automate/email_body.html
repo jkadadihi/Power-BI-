@@ -1,0 +1,77 @@
+<table cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
+<tbody><tr><td>
+<table cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e6e6e6;">
+  <tbody><tr><td style="height:6px;background:#ffcc00;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <tr><td style="height:3px;background:#d40511;font-size:0;line-height:0;">&nbsp;</td></tr>
+
+  <tr><td style="padding:26px 30px 8px 30px;font-family:Arial,Helvetica,sans-serif;">
+    <div style="font-size:11px;letter-spacing:1px;color:#d40511;font-weight:bold;text-transform:uppercase;">DHL Express &middot; AMKAD Finance</div>
+    <div style="font-size:24px;font-weight:800;color:#1a1d21;padding-top:4px;">AMKAD AR Report</div>
+    <div style="font-size:13px;color:#5b6470;padding-top:4px;">
+      Latest month <b>@{outputs('Run_script')?['body/result']?['LatestMonth']}</b> &middot;
+      Snapshot @{outputs('Run_script')?['body/result']?['LatestSnapshotDate']}
+    </div>
+  </td></tr>
+
+  <tr><td style="padding:14px 30px 4px 30px;">
+    <table cellpadding="0" cellspacing="0">
+      <tbody><tr>
+        <td style="padding:6px;">
+          <table cellpadding="0" cellspacing="0" style="border:1px solid #e6e6e6;border-left:4px solid #1f4e79;">
+            <tbody><tr><td style="padding:12px 14px;font-family:Arial,sans-serif;">
+              <div style="font-size:11px;color:#5b6470;font-weight:bold;text-transform:uppercase;">Total AR</div>
+              <div style="font-size:22px;font-weight:800;color:#1a1d21;">@{outputs('Run_script')?['body/result']?['TotalAR']}</div>
+            </td></tr>
+          </tbody></table>
+        </td>
+        <td style="padding:6px;">
+          <table cellpadding="0" cellspacing="0" style="border:1px solid #e6e6e6;border-left:4px solid #d40511;">
+            <tbody><tr><td style="padding:12px 14px;font-family:Arial,sans-serif;">
+              <div style="font-size:11px;color:#5b6470;font-weight:bold;text-transform:uppercase;">Overdue %</div>
+              <div style="font-size:22px;font-weight:800;color:#1a1d21;">@{outputs('Run_script')?['body/result']?['OverduePct']}</div>
+            </td></tr>
+          </tbody></table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:6px;">
+          <table cellpadding="0" cellspacing="0" style="border:1px solid #e6e6e6;border-left:4px solid #548235;">
+            <tbody><tr><td style="padding:12px 14px;font-family:Arial,sans-serif;">
+              <div style="font-size:11px;color:#5b6470;font-weight:bold;text-transform:uppercase;">GT90 %</div>
+              <div style="font-size:22px;font-weight:800;color:#1a1d21;">@{outputs('Run_script')?['body/result']?['GT90Pct']}</div>
+            </td></tr>
+          </tbody></table>
+        </td>
+        <td style="padding:6px;">
+          <table cellpadding="0" cellspacing="0" style="border:1px solid #e6e6e6;border-left:4px solid #7030a0;">
+            <tbody><tr><td style="padding:12px 14px;font-family:Arial,sans-serif;">
+              <div style="font-size:11px;color:#5b6470;font-weight:bold;text-transform:uppercase;">UAC % of AR</div>
+              <div style="font-size:22px;font-weight:800;color:#1a1d21;">@{outputs('Run_script')?['body/result']?['UACPctOfAR']}</div>
+            </td></tr>
+          </tbody></table>
+        </td>
+      </tr>
+    </tbody></table>
+  </td></tr>
+
+  <tr><td style="padding:8px 30px 4px 30px;font-family:Arial,sans-serif;font-size:14px;color:#1a1d21;line-height:1.6;">
+    Total Overdue is <b>@{outputs('Run_script')?['body/result']?['TotalOverdue']}</b> and Gross Sales
+    <b>@{outputs('Run_script')?['body/result']?['GrossSales']}</b>. Open the full interactive report for
+    country risk, customer views, trends and this month's biggest movers.
+  </td></tr>
+
+  <tr><td align="center" style="padding:18px 30px 6px 30px;">
+    <a href="@{outputs('Create_sharing_link_for_a_file_or_folder')?['body/link/webUrl']}" style="background-color:#d40511;color:#ffffff;display:inline-block;padding:14px 30px;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;text-decoration:none;border-radius:8px;">Open the full interactive report &rarr;</a>
+  </td></tr>
+
+  <tr><td align="center" style="padding:2px 30px 22px 30px;font-family:Arial,sans-serif;font-size:12px;color:#5b6470;">
+    Or paste this link into your browser:<br>
+    <a href="@{outputs('Create_sharing_link_for_a_file_or_folder')?['body/link/webUrl']}" style="color:#d40511;font-weight:bold;word-break:break-all;">@{outputs('Create_sharing_link_for_a_file_or_folder')?['body/link/webUrl']}</a>
+  </td></tr>
+
+  <tr><td style="padding:14px 30px;border-top:1px solid #e6e6e6;font-family:Arial,sans-serif;font-size:11px;color:#8a837b;">
+    Best viewed in a web browser &middot; Live EUR columns only &middot; DSO/TDSO excluded &middot; latest snapshot per month.
+  </td></tr>
+</tbody></table>
+</td></tr>
+</tbody></table>
