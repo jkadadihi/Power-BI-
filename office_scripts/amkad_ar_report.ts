@@ -480,7 +480,12 @@ function main(workbook: ExcelScript.Workbook) {
   // ─────────────────────────────────────────────────────────────────────────
   // Count how many rows carry each (month, date) so we can tell a real daily
   // extract (thousands of rows) apart from a stray late-dated row (a handful).
+  // We also track summed AR and blank-key rows per date — this is the ground
+  // truth used both for snapshot selection and for the diagnostic audit.
   const rowsPerMonthDate: { [month: string]: { [date: string]: number } } = {};
+  const arPerMonthDate: { [month: string]: { [date: string]: number } } = {};
+  const blankKeyPerMonthDate: { [month: string]: { [date: string]: number } } = {};
+  const noDateRowsPerMonth: { [month: string]: number } = {};
 
   for (let r = 0; r < values.length; r++) {
     const row = values[r];
@@ -491,10 +496,19 @@ function main(workbook: ExcelScript.Workbook) {
     if (!isValidMonth(month)) continue;
 
     const fullDate = normalizeDate(monthRaw as string | number | boolean);
-    if (!fullDate) continue;
+    if (!fullDate) {
+      noDateRowsPerMonth[month] = (noDateRowsPerMonth[month] || 0) + 1;
+      continue;
+    }
 
-    if (!rowsPerMonthDate[month]) rowsPerMonthDate[month] = {};
+    const arVal = readCellAsNumber(row, "TotalAR");
+    const cKey = readCellAsText(row, "Country").trim();
+    const cuKey = readCellAsText(row, "Customer").trim();
+
+    if (!rowsPerMonthDate[month]) { rowsPerMonthDate[month] = {}; arPerMonthDate[month] = {}; blankKeyPerMonthDate[month] = {}; }
     rowsPerMonthDate[month][fullDate] = (rowsPerMonthDate[month][fullDate] || 0) + 1;
+    arPerMonthDate[month][fullDate] = (arPerMonthDate[month][fullDate] || 0) + arVal;
+    if (!cKey || !cuKey) blankKeyPerMonthDate[month][fullDate] = (blankKeyPerMonthDate[month][fullDate] || 0) + 1;
   }
 
   // For each month, the snapshot date is the LATEST date whose row count is
@@ -506,20 +520,55 @@ function main(workbook: ExcelScript.Workbook) {
 
   Object.keys(rowsPerMonthDate).forEach(month => {
     const dateCounts = rowsPerMonthDate[month];
+    const dateAr = arPerMonthDate[month] || {};
     const dates = Object.keys(dateCounts);
     const maxCount = dates.reduce((m, d) => Math.max(m, dateCounts[d]), 0);
     const threshold = Math.max(1, maxCount * SNAPSHOT_MIN_SHARE);
 
+    // Prefer the latest date that is BOTH a representative extract (row count)
+    // AND actually carries AR — so neither a sparse stray row nor a late
+    // all-zero/adjustment extract can hijack the month.
     let chosen = "";
     dates.forEach(d => {
-      if (dateCounts[d] >= threshold && d > chosen) chosen = d;
+      if (dateCounts[d] >= threshold && Math.abs(dateAr[d] || 0) > 0 && d > chosen) chosen = d;
     });
-    // Fallback: if nothing cleared the threshold, keep the plain latest date.
+    // Fallback 1: latest date meeting the row-count threshold (ignore AR).
+    if (!chosen) {
+      dates.forEach(d => { if (dateCounts[d] >= threshold && d > chosen) chosen = d; });
+    }
+    // Fallback 2: plain latest date.
     if (!chosen) {
       dates.forEach(d => { if (d > chosen) chosen = d; });
     }
     latestDatePerMonth[month] = chosen;
   });
+
+  // Diagnostic audit — for the latest 6 calendar months, expose exactly what
+  // each month resolved to: which date was chosen, and the row-count / AR /
+  // blank-key breakdown per date. This turns "why is April empty" into a
+  // visible, self-serve answer in the Data Quality tab.
+  const snapshotAudit = Object.keys(rowsPerMonthDate)
+    .sort()
+    .reverse()
+    .slice(0, 6)
+    .map(month => {
+      const dc = rowsPerMonthDate[month];
+      const ar = arPerMonthDate[month] || {};
+      const bk = blankKeyPerMonthDate[month] || {};
+      const dates = Object.keys(dc).sort().reverse();
+      const totalRows = dates.reduce((s, d) => s + dc[d], 0);
+      const chosen = latestDatePerMonth[month];
+      return {
+        month,
+        chosenDate: chosen,
+        distinctDates: dates.length,
+        totalRows,
+        noDateRows: noDateRowsPerMonth[month] || 0,
+        arAtChosen: chosen ? (ar[chosen] || 0) : 0,
+        rowsAtChosen: chosen ? (dc[chosen] || 0) : 0,
+        dates: dates.slice(0, 6).map(d => ({ date: d, rows: dc[d], ar: ar[d] || 0, blankKey: bk[d] || 0 }))
+      };
+    });
 
   // ─────────────────────────────────────────────────────────────────────────
   // PASS 2 — Aggregate only the latest-snapshot rows per month
@@ -620,9 +669,15 @@ function main(workbook: ExcelScript.Workbook) {
     };
   }
 
-  const latestMonth = months[0];
-  const previousMonth = months[1] || "";
-  const latestThreeMonths = months.slice(0, 3);
+  // Only surface months that actually have data. An empty month (e.g. a period
+  // whose snapshot resolves to zero AR, or a month with no real extract) must
+  // not appear as a dead all-zero column in the MoM tables or the trend.
+  const monthsWithData = months.filter(m => (monthTotals[m] || blankAgg()).totalAR > 0);
+  const effectiveMonths = monthsWithData.length ? monthsWithData : months;
+
+  const latestMonth = effectiveMonths[0];
+  const previousMonth = effectiveMonths[1] || "";
+  const latestThreeMonths = effectiveMonths.slice(0, 3);
   const latestSnapshotDate = latestDatePerMonth[latestMonth] || latestMonth;
 
   const latestAgg = monthTotals[latestMonth] || blankAgg();
@@ -1003,6 +1058,33 @@ function main(workbook: ExcelScript.Workbook) {
           <tr><td class="customer-name">Negative Overdue rows</td><td>${negativeOverdueRows.toLocaleString("en-US")}</td></tr>
           <tr><td class="customer-name">Rows where GT60 > AR</td><td>${gt60GreaterThanARRows.toLocaleString("en-US")}</td></tr>
           <tr><td class="customer-name">Rows where GT90 > AR</td><td>${gt90GreaterThanARRows.toLocaleString("en-US")}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="customer-table-wrapper">
+      <div class="customer-table-title">Snapshot Audit — how each recent month resolved</div>
+      <table class="customer-matrix searchable-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Snapshot date used</th>
+            <th>AR at snapshot</th>
+            <th>Rows at snapshot</th>
+            <th>Distinct dates</th>
+            <th>Total rows in month</th>
+            <th>Date breakdown (date · rows · AR · blank-key)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${snapshotAudit.map(a => `<tr>
+            <td class="customer-name">${escapeHtml(a.month)}</td>
+            <td>${escapeHtml(a.chosenDate || "—")}</td>
+            <td>${formatCurrency(a.arAtChosen, currencySymbol)}</td>
+            <td>${a.rowsAtChosen.toLocaleString("en-US")}</td>
+            <td>${a.distinctDates.toLocaleString("en-US")}</td>
+            <td>${a.totalRows.toLocaleString("en-US")}${a.noDateRows ? " (+" + a.noDateRows + " no-date)" : ""}</td>
+            <td style="text-align:left;">${a.dates.map(d => `${escapeHtml(d.date)} · ${d.rows} · ${formatCurrency(d.ar, currencySymbol)}${d.blankKey ? " · " + d.blankKey + " blank" : ""}`).join("<br>")}</td>
+          </tr>`).join("")}
         </tbody>
       </table>
     </div>` : "";
