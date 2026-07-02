@@ -1215,14 +1215,18 @@ function openTab(tabId, button) {
     button.setAttribute("aria-selected", "true");
   }
 
-  // Deep-link support: reflect active tab in the URL hash
-  if (history.replaceState) {
-    history.replaceState(null, "", "#" + tabId);
-  }
-
+  // Render charts FIRST so nothing below can prevent it.
   if (tabId === "trends") {
     renderAllCharts();
   }
+
+  // Deep-link support: reflect active tab in the URL hash.
+  // Wrapped because sandboxed viewers (SharePoint / Outlook preview) throw here.
+  try {
+    if (history && history.replaceState) {
+      history.replaceState(null, "", "#" + tabId);
+    }
+  } catch (e) { /* ignore in sandboxed viewers */ }
 }
 
 function activateTabById(tabId) {
@@ -1912,20 +1916,24 @@ function hexToRgba(hex, alpha) {
   return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
 }
 
-function renderAllCharts() {
-  renderTrendMeta("metaTotalAR", "totalAR", euro, false);
-  renderTrendMeta("metaOverduePct", "overduePct", pct, true);
-  renderTrendMeta("metaGT60Pct", "gt60Pct", pct, true);
-  renderTrendMeta("metaGT90Pct", "gt90Pct", pct, true);
-  renderTrendMeta("metaUAC", "uac", euro, true);
-  renderTrendMeta("metaPayments", "payments", euro, false);
+function safeRender(fn) {
+  try { fn(); } catch (e) { /* one failing chart must not blank the rest */ }
+}
 
-  renderLineChart("chartTotalAR", "totalAR", euro, "#1f4e79");
-  renderLineChart("chartOverduePct", "overduePct", pct, "#d40511");
-  renderLineChart("chartGT60Pct", "gt60Pct", pct, "#ed7d31");
-  renderLineChart("chartGT90Pct", "gt90Pct", pct, "#548235");
-  renderLineChart("chartUAC", "uac", euro, "#7030a0");
-  renderLineChart("chartPayments", "payments", euro, "#00843d");
+function renderAllCharts() {
+  safeRender(() => renderTrendMeta("metaTotalAR", "totalAR", euro, false));
+  safeRender(() => renderTrendMeta("metaOverduePct", "overduePct", pct, true));
+  safeRender(() => renderTrendMeta("metaGT60Pct", "gt60Pct", pct, true));
+  safeRender(() => renderTrendMeta("metaGT90Pct", "gt90Pct", pct, true));
+  safeRender(() => renderTrendMeta("metaUAC", "uac", euro, true));
+  safeRender(() => renderTrendMeta("metaPayments", "payments", euro, false));
+
+  safeRender(() => renderLineChart("chartTotalAR", "totalAR", euro, "#1f4e79"));
+  safeRender(() => renderLineChart("chartOverduePct", "overduePct", pct, "#d40511"));
+  safeRender(() => renderLineChart("chartGT60Pct", "gt60Pct", pct, "#ed7d31"));
+  safeRender(() => renderLineChart("chartGT90Pct", "gt90Pct", pct, "#548235"));
+  safeRender(() => renderLineChart("chartUAC", "uac", euro, "#7030a0"));
+  safeRender(() => renderLineChart("chartPayments", "payments", euro, "#00843d"));
 }
 
 function downloadTableCsv(tableId, filename) {
@@ -1958,17 +1966,21 @@ function downloadTableCsv(tableId, filename) {
 }
 
 function init() {
-  initTheme();
-  populateDropdowns();
-  initTabKeyboardNav();
-  initSortableTables();
-  initBackToTop();
+  // Each step is isolated so a failure in a sandboxed viewer can't abort the rest.
+  safeRender(initTheme);
+  safeRender(populateDropdowns);
+  safeRender(initTabKeyboardNav);
+  safeRender(initSortableTables);
+  safeRender(initBackToTop);
 
-  // Open the tab referenced in the URL hash (deep-link), if any
-  const hash = (window.location.hash || "").replace("#", "");
-  if (hash && document.getElementById(hash)) {
-    activateTabById(hash);
-  }
+  // Open the tab referenced in the URL hash (deep-link), if any.
+  safeRender(() => {
+    let hash = "";
+    try { hash = (window.location.hash || "").replace("#", ""); } catch (e) { hash = ""; }
+    if (hash && document.getElementById(hash)) {
+      activateTabById(hash);
+    }
+  });
 }
 
 if (document.readyState === "loading") {
