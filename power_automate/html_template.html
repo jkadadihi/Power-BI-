@@ -750,6 +750,72 @@ mark.search-hit {
 /* ===== Section subtitle ===== */
 .section-note { font-size: 13px; color: var(--ink-soft); margin: -8px 0 16px 0; max-width: 780px; }
 
+/* ===== Confidence banner + reconciliation strip ===== */
+.conf-banner {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  border-radius: 14px; padding: 14px 18px; margin-bottom: 22px;
+  border: 1px solid var(--line); background: var(--surface-2);
+}
+.conf-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.conf-good  { background: rgba(12,163,12,0.09);  border-color: rgba(12,163,12,0.35); }
+.conf-good .conf-dot { background: var(--status-good); }
+.conf-warn  { background: rgba(250,178,25,0.10); border-color: rgba(250,178,25,0.45); }
+.conf-warn .conf-dot { background: var(--status-warning); }
+.conf-title { font-weight: 800; font-size: 14px; color: var(--ink); }
+.conf-text  { font-size: 12.5px; color: var(--ink-soft); }
+.recon-strip { display: flex; gap: 20px; flex-wrap: wrap; margin-left: auto; }
+.recon-item { font-size: 12px; color: var(--ink-soft); }
+.recon-item b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ===== Executive briefing (auto-narrative) ===== */
+.briefing {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--series-1);
+  border-radius: var(--radius-sm);
+  padding: 20px 24px; line-height: 1.7; font-size: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.briefing p { margin: 0 0 10px 0; }
+.briefing p:last-child { margin-bottom: 0; }
+.briefing .hl-good { color: var(--status-good); font-weight: 700; }
+.briefing .hl-bad  { color: var(--status-critical); font-weight: 700; }
+.briefing strong { color: var(--ink); }
+
+/* ===== Movers board ===== */
+.movers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.movers-col { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-sm); }
+.movers-col h4 { margin: 0 0 12px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.mover-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.mover-row:last-child { border-bottom: none; }
+.mover-name { font-weight: 700; font-size: 13px; color: var(--ink); }
+.mover-meta { font-size: 11.5px; color: var(--ink-soft); }
+.mover-delta { font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ===== Portfolio analytics (pareto + bubble) ===== */
+.pa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 26px; }
+.conc-stats { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; }
+.conc-stat { flex: 1; min-width: 120px; }
+.conc-stat-val { font-size: 22px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.conc-stat-lab { font-size: 11.5px; color: var(--ink-soft); }
+.chart-svg { width: 100%; height: 260px; display: block; }
+
+/* ===== Email digest modal ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(10,12,16,0.55);
+  display: none; align-items: center; justify-content: center; z-index: 80; padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal-card {
+  background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 760px; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.modal-head h3 { margin: 0; font-size: 17px; }
+.modal-body { padding: 18px 22px; overflow: auto; }
+.modal-foot { padding: 14px 22px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
+.digest-preview { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface-2); }
+
 /* ===== Shared chart tooltip ===== */
 #vizTooltip {
   position: fixed; z-index: 60; pointer-events: none;
@@ -764,6 +830,7 @@ mark.search-hit {
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; }
   .spark-row { grid-template-columns: repeat(2, 1fr); }
+  .movers-grid, .pa-grid { grid-template-columns: 1fr; }
   .kpi-grid, .chart-grid, .filter-grid, .simulator-grid, .trend-meta {
     grid-template-columns: 1fr !important;
   }
@@ -853,12 +920,15 @@ mark.search-hit {
       <div style="margin-top:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <button class="secondary-button" onclick="resetFilters()">Reset filters</button>
         <button class="secondary-button" onclick="window.print()">Print / Save as PDF</button>
+        <button class="small-button" onclick="openDigest()">✉ Email-ready digest</button>
         <span id="searchStatus" style="font-size:12.5px; color:var(--ink-soft); font-weight:600;"></span>
       </div>
     </div>
   </div>
 
   <div class="section tab-content active" id="overview">
+    <div id="confidenceBanner"></div>
+
     <div class="hero" id="execHero">
       <div class="hero-grid">
         <div>
@@ -870,7 +940,11 @@ mark.search-hit {
       </div>
     </div>
 
-    <div class="section-title">Executive KPI Summary</div>
+    <div class="section-title">Executive Briefing</div>
+    <div class="section-note">Auto-generated from this snapshot — the numbers that moved and why they matter.</div>
+    <div class="briefing" id="execBriefing">Generating briefing…</div>
+
+    <div class="section-title" style="margin-top:32px;">Executive KPI Summary</div>
 
     <div class="kpi-grid">
       <div class="card blue">
@@ -964,6 +1038,19 @@ mark.search-hit {
       </div>
     </div>
 
+    <div class="section-title" style="margin-top:32px;">Biggest Movers — Month over Month</div>
+    <div class="section-note" id="moversNote">Customers with the largest change in overdue balance vs the previous snapshot.</div>
+    <div class="movers-grid">
+      <div class="movers-col">
+        <h4><span style="color:var(--status-good);">▼</span> Most Improved (overdue down)</h4>
+        <div id="moversImproved"></div>
+      </div>
+      <div class="movers-col">
+        <h4><span style="color:var(--status-critical);">▲</span> Most Deteriorated (overdue up)</h4>
+        <div id="moversWorsened"></div>
+      </div>
+    </div>
+
     <div class="section-title" style="margin-top:32px;">Management Summary</div>
     <div class="summary">
       <strong>Current AR position:</strong><br>
@@ -986,6 +1073,21 @@ mark.search-hit {
   </div>
 
   <div class="section tab-content" id="customers">
+    <div class="section-title">Portfolio Analytics</div>
+    <div class="section-note">Where the receivable is concentrated, and which accounts carry the most risk. Built from the latest snapshot.</div>
+    <div class="pa-grid">
+      <div class="chart-card">
+        <div class="customer-table-title">AR Concentration (Pareto)</div>
+        <div id="paretoChart"></div>
+        <div class="conc-stats" id="concStats"></div>
+      </div>
+      <div class="chart-card">
+        <div class="customer-table-title">Customer Risk Map</div>
+        <div class="section-note" style="margin:2px 0 8px 0;">Bubble size = 90+ exposure. Top-right = large balance that is heavily overdue.</div>
+        <div id="bubbleChart"></div>
+      </div>
+    </div>
+
     <div class="section-title">Customer Views</div>
 
     @{outputs('Run_script')?['body/result']?['TopRiskCustomersTable']}
@@ -1338,6 +1440,23 @@ mark.search-hit {
 <button id="backToTop" onclick="scrollToTop()" title="Back to top" aria-label="Back to top">↑</button>
 <div id="vizTooltip"></div>
 
+<div class="modal-overlay" id="digestModal" onclick="if(event.target===this)closeDigest()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Email-ready digest</h3>
+      <button class="icon-button" onclick="closeDigest()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-note">A condensed, inline-styled summary. Copy it and paste straight into Outlook — formatting is preserved.</div>
+      <div class="digest-preview" id="digestPreview"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="secondary-button" onclick="closeDigest()">Close</button>
+      <button class="small-button" id="copyDigestBtn" onclick="copyDigest()">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const currentData = {
   totalAR: Number("@{outputs('Run_script')?['body/result']?['TotalARNumeric']}"),
@@ -1354,6 +1473,8 @@ const customerOptions = @{outputs('Run_script')?['body/result']?['CustomerOption
 const trendData = @{outputs('Run_script')?['body/result']?['TrendDataJson']};
 const countryDrilldownData = @{outputs('Run_script')?['body/result']?['CountryDrilldownJson']};
 const customerDrilldownData = @{outputs('Run_script')?['body/result']?['CustomerDrilldownJson']};
+const customerMoMData = @{outputs('Run_script')?['body/result']?['CustomerMoMJson']};
+const dataQuality = @{outputs('Run_script')?['body/result']?['DataQualityJson']};
 
 function euro(value) {
   if (!isFinite(value)) return "€0";
@@ -2404,11 +2525,408 @@ function renderHeatmap() {
   });
 }
 
+/* ---- Shared: aggregate the per-country customer rows up to one row per customer ---- */
+function aggregateCustomers() {
+  if (typeof customerDrilldownData === "undefined") return [];
+  const map = {};
+  customerDrilldownData.forEach(r => {
+    if (!map[r.customer]) map[r.customer] = { customer: r.customer, totalAR: 0, overdue: 0, gt60: 0, gt90: 0, uac: 0 };
+    const m = map[r.customer];
+    m.totalAR += r.totalAR || 0;
+    m.overdue += r.overdue || 0;
+    m.gt60 += r.gt60 || 0;
+    m.gt90 += r.gt90 || 0;
+    m.uac += r.uac || 0;
+  });
+  return Object.keys(map).map(k => {
+    const m = map[k];
+    m.overduePct = safeDivide(m.overdue, m.totalAR);
+    m.gt90Pct = safeDivide(m.gt90, m.totalAR);
+    return m;
+  }).filter(m => m.totalAR > 0);
+}
+
+function signedEuro(v) {
+  return (v < 0 ? "-€" : "+€") + Math.round(Math.abs(v)).toLocaleString("en-US");
+}
+function signedPts(v) {
+  return (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " pts";
+}
+
+/* ---- 1. Confidence banner + reconciliation strip ---- */
+function renderConfidenceBanner() {
+  const host = document.getElementById("confidenceBanner");
+  if (!host || typeof dataQuality === "undefined" || !dataQuality) return;
+  const q = dataQuality;
+  const issues = (q.negativeARRows || 0) + (q.gt60OverARRows || 0) + (q.gt90OverARRows || 0) +
+                 (q.blankCustomerRows || 0) + (q.blankCountryRows || 0);
+  const ok = issues === 0;
+  const cls = ok ? "conf-good" : "conf-warn";
+  const title = ok ? "Data quality: clean" : "Data quality: review recommended";
+  const parts = [];
+  if (q.negativeARRows) parts.push(q.negativeARRows + " negative-AR");
+  if (q.negativeOverdueRows) parts.push(q.negativeOverdueRows + " negative-overdue");
+  if (q.gt60OverARRows) parts.push(q.gt60OverARRows + " GT60>AR");
+  if (q.gt90OverARRows) parts.push(q.gt90OverARRows + " GT90>AR");
+  if (q.blankCustomerRows) parts.push(q.blankCustomerRows + " blank-customer");
+  if (q.blankCountryRows) parts.push(q.blankCountryRows + " blank-country");
+  const text = ok
+    ? "No structural anomalies detected in the snapshot rows."
+    : parts.join(" · ") + " — see Data Quality tab.";
+
+  host.className = "conf-banner " + cls;
+  host.innerHTML =
+    '<span class="conf-dot"></span>' +
+    '<span><span class="conf-title">' + title + '</span> &nbsp; <span class="conf-text">' + text + '</span></span>' +
+    '<span class="recon-strip">' +
+      '<span class="recon-item">Snapshot <b>' + (q.latestSnapshotDate || q.latestMonth || "—") + '</b></span>' +
+      '<span class="recon-item">Rows used <b>' + (q.rowsUsed || 0).toLocaleString("en-US") + '</b> of <b>' + (q.rowsTotal || 0).toLocaleString("en-US") + '</b></span>' +
+      '<span class="recon-item">Earlier snapshots skipped <b>' + (q.rowsSkipped || 0).toLocaleString("en-US") + '</b></span>' +
+    '</span>';
+}
+
+/* ---- 2. Executive briefing (auto-narrative) ---- */
+function renderBriefing() {
+  const host = document.getElementById("execBriefing");
+  if (!host) return;
+  const t = trendData || [];
+  if (t.length === 0) { host.innerHTML = "No trend data available for a briefing."; return; }
+
+  const last = t[t.length - 1];
+  const prev = t.length > 1 ? t[t.length - 2] : last;
+  const arChange = last.totalAR - prev.totalAR;
+  const odPtsChange = last.overduePct - prev.overduePct;
+  const gt90PtsChange = last.gt90Pct - prev.gt90Pct;
+
+  const goodOd = odPtsChange <= 0;
+  const odSpan = '<span class="' + (goodOd ? "hl-good" : "hl-bad") + '">' +
+    pct(last.overduePct) + " (" + signedPts(odPtsChange) + ")</span>";
+  const gt90Span = '<span class="' + (gt90PtsChange <= 0 ? "hl-good" : "hl-bad") + '">' +
+    pct(last.gt90Pct) + " (" + signedPts(gt90PtsChange) + ")</span>";
+
+  // Country contributing most 90+ exposure
+  let worstCountryLine = "";
+  if (typeof countryDrilldownData !== "undefined" && countryDrilldownData.length) {
+    const byGt90 = countryDrilldownData.slice().filter(c => c.gt90 > 0).sort((a, b) => b.gt90 - a.gt90);
+    const material = countryDrilldownData.slice()
+      .filter(c => c.totalAR > last.totalAR * 0.01)
+      .sort((a, b) => b.overduePct - a.overduePct);
+    if (byGt90.length) {
+      const w = byGt90[0];
+      worstCountryLine = "<strong>" + w.country + "</strong> carries the largest 90+ exposure at <strong>" +
+        euro(w.gt90) + "</strong>";
+      if (material.length) {
+        const m = material[0];
+        worstCountryLine += ", while <strong>" + m.country + "</strong> runs the highest overdue rate among material balances at <span class='hl-bad'>" + pct(m.overduePct) + "</span>";
+      }
+      worstCountryLine += ".";
+    }
+  }
+
+  // Concentration
+  const custs = aggregateCustomers().sort((a, b) => b.totalAR - a.totalAR);
+  let concLine = "";
+  if (custs.length) {
+    const total = custs.reduce((s, c) => s + c.totalAR, 0);
+    const top1 = custs[0];
+    const top5 = custs.slice(0, 5).reduce((s, c) => s + c.totalAR, 0);
+    concLine = "The book is concentrated: <strong>" + top1.customer + "</strong> alone is <strong>" +
+      pct(safeDivide(top1.totalAR, total)) + "</strong> of AR, and the top 5 customers hold <strong>" +
+      pct(safeDivide(top5, total)) + "</strong>.";
+  }
+
+  // Biggest deteriorating customer by overdue swing
+  let moverLine = "";
+  if (typeof customerMoMData !== "undefined" && customerMoMData.length) {
+    const withPrev = customerMoMData.filter(m => m.hasPrev);
+    if (withPrev.length) {
+      const worst = withPrev.slice().sort((a, b) => (b.overdueNow - b.overduePrev) - (a.overdueNow - a.overduePrev))[0];
+      const swing = worst.overdueNow - worst.overduePrev;
+      if (swing > 0) {
+        moverLine = "The sharpest deterioration this month is <strong>" + worst.customer +
+          "</strong>, whose overdue rose <span class='hl-bad'>" + signedEuro(swing) + "</span>.";
+      }
+    }
+  }
+
+  const arSpan = '<span class="' + (arChange >= 0 ? "hl-bad" : "hl-good") + '">' + signedEuro(arChange) + "</span>";
+
+  const p1 = "Total AR closed at <strong>" + euro(last.totalAR) + "</strong> for " +
+    (dataQuality && dataQuality.latestMonth ? dataQuality.latestMonth : "the latest month") +
+    ", a month-over-month move of " + arSpan + ". Overdue stands at " + odSpan +
+    " of the book and 90+ at " + gt90Span + ".";
+
+  const paras = ["<p>" + p1 + "</p>"];
+  if (worstCountryLine) paras.push("<p>" + worstCountryLine + "</p>");
+  const p3bits = [concLine, moverLine].filter(Boolean);
+  if (p3bits.length) paras.push("<p>" + p3bits.join(" ") + "</p>");
+
+  host.innerHTML = paras.join("");
+}
+
+/* ---- 3. Movers board ---- */
+function renderMovers() {
+  const up = document.getElementById("moversImproved");
+  const down = document.getElementById("moversWorsened");
+  const note = document.getElementById("moversNote");
+  if (!up || !down) return;
+  if (typeof customerMoMData === "undefined" || !customerMoMData.length) {
+    up.innerHTML = down.innerHTML = "<div class='mover-meta'>No prior snapshot to compare.</div>";
+    return;
+  }
+  if (note && dataQuality && dataQuality.previousMonth) {
+    note.textContent = "Customers with the largest change in overdue balance, " +
+      dataQuality.latestMonth + " vs " + dataQuality.previousMonth + ".";
+  }
+
+  const withPrev = customerMoMData.filter(m => m.hasPrev)
+    .map(m => ({ customer: m.customer, swing: m.overdueNow - m.overduePrev, now: m.overdueNow, prev: m.overduePrev }));
+
+  const improved = withPrev.filter(m => m.swing < 0).sort((a, b) => a.swing - b.swing).slice(0, 6);
+  const worsened = withPrev.filter(m => m.swing > 0).sort((a, b) => b.swing - a.swing).slice(0, 6);
+
+  function rowHtml(m, good) {
+    const cls = good ? "hl-good" : "hl-bad";
+    return '<div class="mover-row"><div><div class="mover-name">' + m.customer + '</div>' +
+      '<div class="mover-meta">' + euro(m.prev) + ' → ' + euro(m.now) + '</div></div>' +
+      '<div class="mover-delta ' + cls + '" style="color:' + (good ? "var(--status-good)" : "var(--status-critical)") + '">' +
+      signedEuro(m.swing) + '</div></div>';
+  }
+
+  up.innerHTML = improved.length ? improved.map(m => rowHtml(m, true)).join("") : "<div class='mover-meta'>No improvements this month.</div>";
+  down.innerHTML = worsened.length ? worsened.map(m => rowHtml(m, false)).join("") : "<div class='mover-meta'>No deteriorations this month.</div>";
+}
+
+/* ---- 4. Pareto / concentration ---- */
+function renderPareto() {
+  const host = document.getElementById("paretoChart");
+  const stats = document.getElementById("concStats");
+  if (!host) return;
+  const custs = aggregateCustomers().sort((a, b) => b.totalAR - a.totalAR);
+  if (custs.length === 0) { host.innerHTML = "No customer data."; return; }
+
+  const total = custs.reduce((s, c) => s + c.totalAR, 0);
+  const n = custs.length;
+  const w = 560, h = 260, padL = 48, padR = 46, padT = 16, padB = 34;
+  const barTop = custs.slice(0, 12);
+  const maxBar = barTop[0].totalAR;
+  const innerW = w - padL - padR, innerH = h - padT - padB;
+  const bw = innerW / barTop.length;
+
+  const barColor = cssVar("--seq-250");
+  const lineColor = cssVar("--series-2");
+  const axis = cssVar("--ink-soft");
+
+  let bars = "", line = "", dots = "", labels = "";
+  let cum = 0;
+  const linePts = [];
+  barTop.forEach((c, i) => {
+    const bh = (c.totalAR / maxBar) * innerH;
+    const x = padL + i * bw;
+    const y = padT + innerH - bh;
+    bars += '<rect x="' + (x + 3) + '" y="' + y.toFixed(1) + '" width="' + (bw - 6) + '" height="' + bh.toFixed(1) +
+      '" rx="3" fill="' + barColor + '"><title>' + c.customer + ': ' + euro(c.totalAR) + '</title></rect>';
+    cum += c.totalAR;
+    const cy = padT + innerH - (cum / total) * innerH;
+    const cx = x + bw / 2;
+    linePts.push(cx.toFixed(1) + "," + cy.toFixed(1));
+    dots += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="3" fill="' + lineColor + '"><title>Cumulative through ' + c.customer + ': ' + pct(cum / total) + '</title></circle>';
+    if (i % 2 === 0) labels += '<text x="' + cx.toFixed(1) + '" y="' + (h - 12) + '" font-size="9" text-anchor="middle" fill="' + axis + '">' + (c.customer.length > 8 ? c.customer.slice(0, 7) + "…" : c.customer) + '</text>';
+  });
+  line = '<polyline points="' + linePts.join(" ") + '" fill="none" stroke="' + lineColor + '" stroke-width="2"/>';
+
+  // 80% reference line
+  const y80 = padT + innerH - 0.8 * innerH;
+  const ref = '<line x1="' + padL + '" y1="' + y80 + '" x2="' + (w - padR) + '" y2="' + y80 + '" stroke="' + axis + '" stroke-dasharray="4 4" opacity="0.6"/>' +
+    '<text x="' + (w - padR + 3) + '" y="' + (y80 + 3) + '" font-size="9" fill="' + axis + '">80%</text>';
+
+  host.innerHTML = '<svg class="chart-svg" viewBox="0 0 ' + w + ' ' + h + '">' + ref + bars + line + dots + labels + '</svg>';
+
+  if (stats) {
+    const top1 = custs[0].totalAR / total;
+    const top5 = custs.slice(0, 5).reduce((s, c) => s + c.totalAR, 0) / total;
+    // customers to reach 80%
+    let acc = 0, k = 0;
+    for (const c of custs) { acc += c.totalAR; k++; if (acc / total >= 0.8) break; }
+    // HHI on shares (0..10000)
+    const hhi = Math.round(custs.reduce((s, c) => { const sh = c.totalAR / total * 100; return s + sh * sh; }, 0));
+    stats.innerHTML =
+      statBox(pct(top1), "Top customer") +
+      statBox(pct(top5), "Top 5 customers") +
+      statBox(k + " / " + n, "Customers = 80% AR") +
+      statBox(hhi.toLocaleString("en-US"), "HHI (concentration)");
+  }
+}
+function statBox(val, lab) {
+  return '<div class="conc-stat"><div class="conc-stat-val">' + val + '</div><div class="conc-stat-lab">' + lab + '</div></div>';
+}
+
+/* ---- 5. Customer risk bubble chart ---- */
+function renderBubble() {
+  const host = document.getElementById("bubbleChart");
+  if (!host) return;
+  const custs = aggregateCustomers().filter(c => c.totalAR > 0);
+  if (custs.length === 0) { host.innerHTML = "No customer data."; return; }
+
+  const w = 560, h = 300, padL = 62, padR = 18, padT = 16, padB = 40;
+  const innerW = w - padL - padR, innerH = h - padT - padB;
+  const maxAR = Math.max.apply(null, custs.map(c => c.totalAR));
+  const maxGt90 = Math.max.apply(null, custs.map(c => c.gt90)) || 1;
+  const sqrt = v => Math.sqrt(Math.max(v, 0));
+  const yScale = v => padT + innerH - (sqrt(v) / sqrt(maxAR)) * innerH; // sqrt keeps small customers visible
+  const xScale = p => padL + Math.max(0, Math.min(1, p)) * innerW;      // overdue % 0..100
+  const axis = cssVar("--ink-soft");
+  const grid = cssVar("--line");
+
+  // gridlines
+  let gridSvg = "";
+  [0, 0.25, 0.5, 0.75, 1].forEach(p => {
+    const x = xScale(p);
+    gridSvg += '<line x1="' + x + '" y1="' + padT + '" x2="' + x + '" y2="' + (padT + innerH) + '" stroke="' + grid + '"/>' +
+      '<text x="' + x + '" y="' + (h - 20) + '" font-size="9" text-anchor="middle" fill="' + axis + '">' + (p * 100) + '%</text>';
+  });
+  [0.25, 0.5, 1].forEach(f => {
+    const val = maxAR * f;
+    const y = yScale(val);
+    gridSvg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" stroke="' + grid + '"/>' +
+      '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" font-size="9" text-anchor="end" fill="' + axis + '">' + euro(val) + '</text>';
+  });
+
+  const cGood = cssVar("--status-good"), cWarn = cssVar("--status-warning"), cCrit = cssVar("--status-critical");
+  function riskColor(od) { return od >= 0.4 ? cCrit : (od >= 0.2 ? cWarn : cGood); }
+
+  const sorted = custs.slice().sort((a, b) => b.totalAR - a.totalAR);
+  let circles = "", labels = "";
+  sorted.forEach((c, i) => {
+    const cx = xScale(c.overduePct);
+    const cy = yScale(c.totalAR);
+    const r = 5 + (sqrt(c.gt90) / sqrt(maxGt90)) * 20;
+    const col = riskColor(c.overduePct);
+    circles += '<circle class="bubble" data-tip="' + escapeAttr(c.customer) + ' — AR ' + euro(c.totalAR) + ', Overdue ' + pct(c.overduePct) + ', 90+ ' + euro(c.gt90) +
+      '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + r.toFixed(1) + '" fill="' + hexToRgba(col, 0.55) + '" stroke="' + col + '" stroke-width="1.5"/>';
+    if (i < 4) labels += '<text x="' + cx.toFixed(1) + '" y="' + (cy - r - 3).toFixed(1) + '" font-size="9.5" font-weight="700" text-anchor="middle" fill="var(--ink)">' + (c.customer.length > 12 ? c.customer.slice(0, 11) + "…" : c.customer) + '</text>';
+  });
+
+  const axisTitles =
+    '<text x="' + (padL + innerW / 2) + '" y="' + (h - 4) + '" font-size="10" text-anchor="middle" fill="' + axis + '">Overdue % of balance →</text>' +
+    '<text transform="rotate(-90)" x="' + (-(padT + innerH / 2)) + '" y="12" font-size="10" text-anchor="middle" fill="' + axis + '">Total AR (√ scale) →</text>';
+
+  host.innerHTML = '<svg class="chart-svg" viewBox="0 0 ' + w + ' ' + h + '">' + gridSvg + axisTitles + circles + labels + '</svg>';
+
+  host.querySelectorAll(".bubble").forEach(b => bindTip(b, "<strong>" + b.getAttribute("data-tip") + "</strong>"));
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
 function renderExecutiveViz() {
+  safeRender(renderConfidenceBanner);
   safeRender(renderHero);
+  safeRender(renderBriefing);
   safeRender(renderComposition);
   safeRender(renderCountryRanking);
+  safeRender(renderMovers);
+  safeRender(renderPareto);
+  safeRender(renderBubble);
   safeRender(renderHeatmap);
+}
+
+/* ---- 6. Email-ready digest ---- */
+function buildDigestHtml() {
+  const t = trendData || [];
+  const last = t.length ? t[t.length - 1] : null;
+  const prev = t.length > 1 ? t[t.length - 2] : last;
+  const custs = aggregateCustomers().sort((a, b) => b.totalAR - a.totalAR);
+  const total = custs.reduce((s, c) => s + c.totalAR, 0) || 1;
+  const month = (dataQuality && dataQuality.latestMonth) || "";
+  const snap = (dataQuality && dataQuality.latestSnapshotDate) || month;
+
+  const red = "#d40511", ink = "#1a1d21", soft = "#5b6470", line = "#e6e8ec";
+  function chip(v, lowerGood) {
+    const good = lowerGood ? v <= 0 : v >= 0;
+    const c = Math.abs(v) < 1e-9 ? soft : (good ? "#0ca30c" : "#d03b3b");
+    return '<span style="color:' + c + ';font-weight:700;">' + (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + " pts</span>";
+  }
+  let rows = "";
+  if (last) {
+    const kpis = [
+      ["Total AR", euro(last.totalAR), ""],
+      ["Overdue %", pct(last.overduePct), chip(last.overduePct - (prev ? prev.overduePct : last.overduePct), true)],
+      ["GT90 %", pct(last.gt90Pct), chip(last.gt90Pct - (prev ? prev.gt90Pct : last.gt90Pct), true)],
+      ["UAC %", pct(last.uacPct), chip(last.uacPct - (prev ? prev.uacPct : last.uacPct), true)]
+    ];
+    rows = kpis.map(k =>
+      '<tr><td style="padding:6px 10px;border-bottom:1px solid ' + line + ';color:' + soft + ';">' + k[0] + '</td>' +
+      '<td style="padding:6px 10px;border-bottom:1px solid ' + line + ';font-weight:700;color:' + ink + ';">' + k[1] + '</td>' +
+      '<td style="padding:6px 10px;border-bottom:1px solid ' + line + ';">' + k[2] + '</td></tr>'
+    ).join("");
+  }
+
+  // movers
+  let moverHtml = "";
+  if (typeof customerMoMData !== "undefined" && customerMoMData.length) {
+    const withPrev = customerMoMData.filter(m => m.hasPrev).map(m => ({ c: m.customer, s: m.overdueNow - m.overduePrev }));
+    const worst = withPrev.filter(m => m.s > 0).sort((a, b) => b.s - a.s).slice(0, 3);
+    const best = withPrev.filter(m => m.s < 0).sort((a, b) => a.s - b.s).slice(0, 3);
+    if (worst.length) moverHtml += '<p style="margin:4px 0;color:' + ink + ';"><b>Watch:</b> ' + worst.map(m => m.c + " (" + signedEuro(m.s) + ")").join(", ") + '</p>';
+    if (best.length) moverHtml += '<p style="margin:4px 0;color:' + ink + ';"><b>Improved:</b> ' + best.map(m => m.c + " (" + signedEuro(m.s) + ")").join(", ") + '</p>';
+  }
+
+  const top1 = custs.length ? custs[0] : null;
+  const concHtml = top1 ? '<p style="margin:4px 0;color:' + soft + ';">Concentration: ' + top1.customer + ' is ' + pct(top1.totalAR / total) + ' of AR; top 5 hold ' + pct(custs.slice(0, 5).reduce((s, c) => s + c.totalAR, 0) / total) + '.</p>' : "";
+
+  return '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;">' +
+    '<div style="border-left:5px solid ' + red + ';padding-left:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;letter-spacing:1px;color:' + red + ';font-weight:700;">DHL EXPRESS AMKAD FINANCE</div>' +
+    '<div style="font-size:20px;font-weight:800;color:' + ink + ';">AMKAD AR Report — ' + month + '</div>' +
+    '<div style="font-size:12px;color:' + soft + ';">Snapshot ' + snap + '</div></div>' +
+    '<table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:10px;">' + rows + '</table>' +
+    moverHtml + concHtml +
+    '<p style="margin:10px 0 0 0;font-size:11px;color:' + soft + ';">Live EUR columns only · DSO/TDSO excluded · latest snapshot per month.</p>' +
+    '</div>';
+}
+
+function openDigest() {
+  const preview = document.getElementById("digestPreview");
+  const modal = document.getElementById("digestModal");
+  if (!preview || !modal) return;
+  safeRender(() => { preview.innerHTML = buildDigestHtml(); });
+  modal.classList.add("show");
+}
+function closeDigest() {
+  const modal = document.getElementById("digestModal");
+  if (modal) modal.classList.remove("show");
+}
+function copyDigest() {
+  const preview = document.getElementById("digestPreview");
+  const btn = document.getElementById("copyDigestBtn");
+  if (!preview) return;
+  const html = preview.innerHTML;
+  function done() { if (btn) { const o = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => btn.textContent = o, 1600); } }
+  // Prefer rich HTML copy so Outlook keeps the formatting
+  try {
+    if (navigator.clipboard && window.ClipboardItem) {
+      const item = new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([preview.innerText], { type: "text/plain" })
+      });
+      navigator.clipboard.write([item]).then(done, fallbackCopy);
+      return;
+    }
+  } catch (e) { /* fall through */ }
+  fallbackCopy();
+  function fallbackCopy() {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(preview);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      document.execCommand("copy");
+      sel.removeAllRanges();
+      done();
+    } catch (e) { if (btn) btn.textContent = "Press Ctrl+C"; }
+  }
 }
 
 function init() {

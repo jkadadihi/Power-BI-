@@ -1047,6 +1047,40 @@ function main(workbook: ExcelScript.Workbook) {
     };
   });
 
+  // Per-customer month-over-month (aggregated across countries) for the Movers board.
+  const customerMoM = Object.keys(customerData)
+    .filter(customer => customerData[customer][latestMonth])
+    .map(customer => {
+      const now = customerData[customer][latestMonth] || blankAgg();
+      const prev = (previousMonth && customerData[customer][previousMonth]) || blankAgg();
+      return {
+        customer,
+        arNow: now.totalAR,
+        arPrev: prev.totalAR,
+        overdueNow: now.overdue,
+        overduePrev: prev.overdue,
+        gt90Now: now.gt90,
+        gt90Prev: prev.gt90,
+        hasPrev: previousMonth ? !!customerData[customer][previousMonth] : false
+      };
+    });
+
+  // Numeric data-quality metrics for the confidence banner + reconciliation strip.
+  const dataQuality = {
+    latestMonth: latestMonth,
+    previousMonth: previousMonth,
+    latestSnapshotDate: latestSnapshotDate,
+    rowsTotal: values.length,
+    rowsSkipped: snapshotSkippedRows,
+    rowsUsed: values.length - snapshotSkippedRows,
+    blankCustomerRows: blankCustomerRows,
+    blankCountryRows: blankCountryRows,
+    negativeARRows: negativeTotalARRows,
+    negativeOverdueRows: negativeOverdueRows,
+    gt60OverARRows: gt60GreaterThanARRows,
+    gt90OverARRows: gt90GreaterThanARRows
+  };
+
   return {
     ReportName: reportName,
     BusinessArea: businessArea,
@@ -1103,6 +1137,8 @@ function main(workbook: ExcelScript.Workbook) {
     CustomerOptionsJson: JSON.stringify(customerOptions),
     TrendDataJson: JSON.stringify(trendData),
     CountryDrilldownJson: JSON.stringify(countryDrilldown),
-    CustomerDrilldownJson: JSON.stringify(customerDrilldown)
+    CustomerDrilldownJson: JSON.stringify(customerDrilldown),
+    CustomerMoMJson: JSON.stringify(customerMoM),
+    DataQualityJson: JSON.stringify(dataQuality)
   };
 }
