@@ -478,7 +478,9 @@ function main(workbook: ExcelScript.Workbook) {
   // we only retain the rows belonging to the LATEST snapshot date.  This
   // gives us a true MTD point-in-time view instead of a running accumulation.
   // ─────────────────────────────────────────────────────────────────────────
-  const latestDatePerMonth: { [month: string]: string } = {};
+  // Count how many rows carry each (month, date) so we can tell a real daily
+  // extract (thousands of rows) apart from a stray late-dated row (a handful).
+  const rowsPerMonthDate: { [month: string]: { [date: string]: number } } = {};
 
   for (let r = 0; r < values.length; r++) {
     const row = values[r];
@@ -491,10 +493,33 @@ function main(workbook: ExcelScript.Workbook) {
     const fullDate = normalizeDate(monthRaw as string | number | boolean);
     if (!fullDate) continue;
 
-    if (!latestDatePerMonth[month] || fullDate > latestDatePerMonth[month]) {
-      latestDatePerMonth[month] = fullDate;
-    }
+    if (!rowsPerMonthDate[month]) rowsPerMonthDate[month] = {};
+    rowsPerMonthDate[month][fullDate] = (rowsPerMonthDate[month][fullDate] || 0) + 1;
   }
+
+  // For each month, the snapshot date is the LATEST date whose row count is
+  // representative of that month's busiest extract. This prevents a single
+  // stray / partial / adjustment row dated after the real extract from
+  // hijacking the month and zeroing it out (the April symptom).
+  const SNAPSHOT_MIN_SHARE = 0.5; // a candidate date must have >= 50% of the busiest date's rows
+  const latestDatePerMonth: { [month: string]: string } = {};
+
+  Object.keys(rowsPerMonthDate).forEach(month => {
+    const dateCounts = rowsPerMonthDate[month];
+    const dates = Object.keys(dateCounts);
+    const maxCount = dates.reduce((m, d) => Math.max(m, dateCounts[d]), 0);
+    const threshold = Math.max(1, maxCount * SNAPSHOT_MIN_SHARE);
+
+    let chosen = "";
+    dates.forEach(d => {
+      if (dateCounts[d] >= threshold && d > chosen) chosen = d;
+    });
+    // Fallback: if nothing cleared the threshold, keep the plain latest date.
+    if (!chosen) {
+      dates.forEach(d => { if (d > chosen) chosen = d; });
+    }
+    latestDatePerMonth[month] = chosen;
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // PASS 2 — Aggregate only the latest-snapshot rows per month
