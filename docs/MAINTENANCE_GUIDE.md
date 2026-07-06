@@ -62,7 +62,9 @@ or whatever it has been merged into):
 |---|---|---|
 | `power_query/…` (the M query) | Picks the latest daily file, loads its `RawData` | Excel → Power Query (Data → Queries) |
 | `office_scripts/amkad_ar_report.ts` | All the calculations + builds the tables/JSON | Excel Online → Automate → Code Editor |
+| `office_scripts/refresh_trigger.ts` | No-op script that forces the RawData refresh (see 4E) | Excel Online → Automate → Code Editor |
 | `power_automate/html_template.html` | The dashboard layout + charts + interactivity | Power Automate → the Compose/HTML action |
+| `power_automate/email_body.html` | The automated email body (see 4D) | Power Automate → Send an email (V2) |
 | `docs/MAINTENANCE_GUIDE.md` | This guide | — |
 
 > **Deploying = copy the file's contents into the right tool and save/run.**
@@ -79,6 +81,7 @@ or whatever it has been merged into):
 | **If the daily file naming changes** | Update the filename parsing in Power Query (see 4C). |
 | **If a new column is added to RawData / a column is renamed** | Check the field mapping the Office Script uses (see 4B, "Field mapping"). |
 | **If the report layout needs a change** | Edit `html_template.html` and re-paste into Power Automate (4A). |
+| **Occasionally** | Confirm the **"AMKAD – Trigger Daily Refresh"** flow (4E) is still enabled and still scheduled to run *before* the main report flow, with a healthy time gap between them. If someone disables it or the gap closes, the report can silently go back to reading stale data. |
 
 ---
 
@@ -104,6 +107,15 @@ renaming one will blank out that value. Everything else is normal HTML/CSS/JS.
 > fonts, chart libraries, images). That is why all styling and charts are written
 > inline. Never add a `<script src="https://…">` or external stylesheet — it will
 > silently fail in those viewers.
+
+> **The Simulator tab's aging assumptions are calibrated automatically, not
+> hardcoded.** The "conservative / moderate / aggressive" roll-forward rates are
+> computed client-side from the report's own historical trend data (how much of
+> the 0–60 bucket has actually advanced to 60+ over time, and so on) — see
+> `calibrateAgingRates()` in the script block. If a future maintainer wonders why
+> the numbers aren't round percentages, that's why. The Simulator tab shows the
+> sample size and computed rates directly, so the calibration is always
+> auditable rather than a black box.
 
 ### 4B. The Office Script (`office_scripts/amkad_ar_report.ts`)
 
@@ -177,6 +189,49 @@ must be updated to match (spaces in the action name become underscores).
   some attributes). Always re-paste the **whole file** rather than editing a
   fragment in place, so nothing drifts out of sync with what's in the repo.
 
+### 4E. Automatic daily refresh (`office_scripts/refresh_trigger.ts`)
+
+**The problem this solves:** the Office Script reads whatever is *currently*
+sitting in `RawData` — it does not refresh Power Query itself, and Office
+Scripts have no supported way to trigger a Power Query refresh from inside a
+script. Without something forcing a refresh first, the report can silently
+run on yesterday's (or older) data.
+
+**The fix: two separate scheduled flows, not one.**
+
+| Flow | Trigger | What it does |
+|---|---|---|
+| **"AMKAD – Trigger Daily Refresh"** (new) | Recurrence, runs **first** | Runs `refresh_trigger.ts` — a script that does nothing except open the workbook. Opening it, with **"Refresh data when opening the file"** enabled on the RawData query, is what triggers the refresh. |
+| **"AMKAD AR Report"** (existing) | Recurrence, runs **after**, with a time gap | Runs the real report script, builds the HTML, sends the email. |
+
+The gap between the two flows (we started with 20–30 minutes) is what
+*guarantees* the refresh has finished before the report reads the data —
+there is no shared session between the two flows, so there is no race
+condition to reason about.
+
+**Why a trivial script and not just "open the file some other way"?**
+Any action that opens a genuine Excel session against the workbook honors
+"refresh on open" — the script's own logic doesn't matter, only the fact
+that a session opened. A no-op script is the simplest, cheapest way to
+create that event on a schedule.
+
+**How to update it:**
+1. Edit `office_scripts/refresh_trigger.ts` in the repo, copy the entire file.
+2. Excel Online → **Automate** → open (or create) the `refresh_trigger` script
+   → Code Editor → paste → **Save**.
+3. In Power Automate, the **"AMKAD – Trigger Daily Refresh"** flow's **Run
+   script** action should point at this script, against the same working
+   workbook as the main report flow.
+
+**How to check it's working:** after a scheduled run, open the report's
+**Data Quality tab** and confirm "Latest snapshot date used" is current. If
+it's ever stale, first check that the trigger flow actually ran (Power
+Automate run history) before assuming anything else is wrong.
+
+**If you ever need to tighten or loosen the gap:** shrink it once you've
+watched several runs and know how long the real-world refresh takes; widen
+it if "Rows used" on Data Quality ever looks stale right after a run.
+
 ---
 
 ## 5. Troubleshooting Playbook
@@ -214,6 +269,14 @@ must be updated to match (spaces in the action name become underscores).
   permissions/sign-in expired.
 - **Fix:** update the path/parsing (4C); confirm you can open the SharePoint
   folder yourself; re-authenticate the SharePoint connection.
+
+### Symptom: report data still looks a day (or more) stale despite the refresh setup
+- **Cause:** the **"AMKAD – Trigger Daily Refresh"** flow (4E) didn't run, was
+  disabled, or the gap before the main report flow was too short.
+- **Check:** Power Automate run history for the trigger flow — did it run, and
+  when, relative to the report flow?
+- **Fix:** re-enable/reschedule the trigger flow; widen the gap between the two
+  flows if the refresh is taking longer than expected.
 
 ### Symptom: charts are blank and there's a red "issue running scripts" banner
 - **Cause:** you're viewing inside a sandboxed preview (SharePoint/Outlook) that
