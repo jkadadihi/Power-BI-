@@ -1,0 +1,46 @@
+name: Generate AMKAD Country Review deck
+
+# Runs entirely inside GitHub — no Azure, no external hosting needed.
+#
+# Trigger 1: schedule — runs on its own, no external caller required.
+#   Reads docs/data/latest_report_data.json (kept fresh by Power Automate,
+#   or updated manually) and rebuilds the deck from whatever is there.
+# Trigger 2: workflow_dispatch — lets you (or Power Automate, via the
+#   GitHub API) trigger a rebuild on demand from the Actions tab.
+on:
+  schedule:
+    # 07:00 UTC daily. Adjust to match your reporting cadence.
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-deck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install python-pptx
+
+      - name: Build the deck
+        run: |
+          python3 docs/build_country_review_pptx.py \
+            docs/data/latest_report_data.json \
+            docs/latest/AMKAD_Country_Review.pptx
+
+      - name: Commit the updated deck
+        run: |
+          git config user.name "amkad-automation"
+          git config user.email "actions@github.com"
+          git add docs/latest/AMKAD_Country_Review.pptx
+          git diff --staged --quiet || git commit -m "Auto-update AMKAD Country Review deck"
+          git push
