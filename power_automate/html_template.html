@@ -847,6 +847,23 @@ mark.search-hit {
 .drilldown-mini tbody tr:hover { background: rgba(255,204,0,0.10); }
 .drilldown-empty { padding: 10px 14px; color: var(--ink-soft); font-size: 12.5px; }
 
+/* ===== Threshold settings modal ===== */
+.threshold-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.threshold-table th {
+  background: var(--surface-2); font-weight: 700; font-size: 11.5px; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--ink-soft); padding: 8px 10px; border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+.threshold-table td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); text-align: center; }
+.threshold-table input[type="number"] {
+  width: 64px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--surface); color: var(--ink); font-size: 13.5px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.threshold-table input[type="number"]:focus {
+  outline: none; border-color: var(--dhl-yellow-dark); box-shadow: 0 0 0 3px rgba(255,204,0,0.25);
+}
+
 /* ===== Shared chart tooltip ===== */
 #vizTooltip {
   position: fixed; z-index: 60; pointer-events: none;
@@ -906,6 +923,7 @@ mark.search-hit {
         </div>
       </div>
       <div class="header-actions">
+        <button class="icon-button" onclick="openThresholdSettings()" title="Edit status thresholds" aria-label="Edit status thresholds">⚙️</button>
         <button class="icon-button" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
         <button class="icon-button" onclick="window.print()" title="Print / Save as PDF" aria-label="Print">🖨️</button>
       </div>
@@ -1553,6 +1571,56 @@ mark.search-hit {
   </div>
 </div>
 
+<div class="modal-overlay" id="thresholdModal" onclick="if(event.target===this)closeThresholdSettings()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Edit status thresholds</h3>
+      <button class="icon-button" onclick="closeThresholdSettings()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-note">
+        Controls the Low / Watch / High badges on the Country Summary and Country UAC Summary tables, and
+        which customers appear on the Action Required tab. Changes apply only in <strong>this browser</strong>
+        (saved locally) and do not change what the report generates for anyone else — to change the defaults
+        for everyone, update the thresholds in the source workbook's ReportConfig table.
+      </div>
+
+      <table class="threshold-table">
+        <thead>
+          <tr><th style="text-align:left;">Metric</th><th>Watch ≥</th><th>High ≥</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="customer-name" style="text-align:left;">Overdue %</td>
+            <td><input type="number" id="thWatchOverdue" min="0" max="100" step="0.5"> %</td>
+            <td><input type="number" id="thHighOverdue" min="0" max="100" step="0.5"> %</td>
+          </tr>
+          <tr>
+            <td class="customer-name" style="text-align:left;">GT60 %</td>
+            <td><input type="number" id="thWatchGT60" min="0" max="100" step="0.5"> %</td>
+            <td><input type="number" id="thHighGT60" min="0" max="100" step="0.5"> %</td>
+          </tr>
+          <tr>
+            <td class="customer-name" style="text-align:left;">GT90 %</td>
+            <td><input type="number" id="thWatchGT90" min="0" max="100" step="0.5"> %</td>
+            <td><input type="number" id="thHighGT90" min="0" max="100" step="0.5"> %</td>
+          </tr>
+          <tr>
+            <td class="customer-name" style="text-align:left;">UAC %</td>
+            <td><input type="number" id="thWatchUAC" min="0" max="100" step="0.5"> %</td>
+            <td><input type="number" id="thHighUAC" min="0" max="100" step="0.5"> %</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="sim-note" id="thresholdStatusNote" style="margin-top:14px;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="secondary-button" onclick="resetThresholdsToConfigured()">Reset to report defaults</button>
+      <button class="small-button" onclick="applyThresholdSettings()">Apply</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const currentData = {
   totalAR: Number("@{outputs('Run_script')?['body/result']?['TotalARNumeric']}"),
@@ -1571,6 +1639,7 @@ const countryDrilldownData = @{outputs('Run_script')?['body/result']?['CountryDr
 const customerDrilldownData = @{outputs('Run_script')?['body/result']?['CustomerDrilldownJson']};
 const customerMoMData = @{outputs('Run_script')?['body/result']?['CustomerMoMJson']};
 const dataQuality = @{outputs('Run_script')?['body/result']?['DataQualityJson']};
+const configuredThresholds = @{outputs('Run_script')?['body/result']?['ThresholdsJson']};
 
 function euro(value) {
   if (!isFinite(value)) return "€0";
@@ -3376,6 +3445,184 @@ function copyDigest() {
   }
 }
 
+/* ============================================================
+   Editable status thresholds — Low/Watch/High badges (Country
+   Summary, Country UAC Summary) and the Action Required list are
+   all driven by these. Defaults come from the report's own
+   ReportConfig (ThresholdsJson); a user's edits are saved to this
+   browser only (localStorage) and recompute the affected tables
+   client-side — they never change what the automation generates.
+   ============================================================ */
+const THRESHOLD_STORAGE_KEY = "amkadThresholdOverrides";
+
+const FALLBACK_THRESHOLDS = {
+  highOverduePct: 0.30, watchOverduePct: 0.20,
+  highGT60Pct: 0.15, watchGT60Pct: 0.08,
+  highGT90Pct: 0.08, watchGT90Pct: 0.04,
+  highUACPct: 0.10, watchUACPct: 0.05
+};
+
+function getConfiguredThresholds() {
+  return (typeof configuredThresholds !== "undefined" && configuredThresholds) ? configuredThresholds : FALLBACK_THRESHOLDS;
+}
+
+function getEffectiveThresholds() {
+  try {
+    const saved = localStorage.getItem(THRESHOLD_STORAGE_KEY);
+    if (saved) return Object.assign({}, getConfiguredThresholds(), JSON.parse(saved));
+  } catch (e) { /* ignore corrupt storage */ }
+  return getConfiguredThresholds();
+}
+
+function statusBadgeHtml(label, color) {
+  return '<span style="display:inline-block;background:' + color + ';color:white;padding:4px 10px;' +
+    'border-radius:999px;font-size:12px;font-weight:bold;">' + label + '</span>';
+}
+
+function computeCountryStatus(overduePct, gt60Pct, gt90Pct, th) {
+  if (overduePct >= th.highOverduePct || gt60Pct >= th.highGT60Pct || gt90Pct >= th.highGT90Pct) {
+    return statusBadgeHtml("High", "#d40511");
+  }
+  if (overduePct >= th.watchOverduePct || gt60Pct >= th.watchGT60Pct || gt90Pct >= th.watchGT90Pct) {
+    return statusBadgeHtml("Watch", "#ed7d31");
+  }
+  return statusBadgeHtml("Low", "#00843d");
+}
+
+function computeUacStatus(uacPct, th) {
+  if (uacPct >= th.highUACPct) return statusBadgeHtml("High", "#d40511");
+  if (uacPct >= th.watchUACPct) return statusBadgeHtml("Watch", "#ed7d31");
+  return statusBadgeHtml("Low", "#00843d");
+}
+
+function recomputeCountryStatuses() {
+  if (typeof countryDrilldownData === "undefined") return;
+  const th = getEffectiveThresholds();
+  const byCountry = {};
+  countryDrilldownData.forEach(c => { byCountry[c.country] = c; });
+
+  document.querySelectorAll("#countrySummaryTable tbody tr[data-country]").forEach(row => {
+    const c = byCountry[row.getAttribute("data-country")];
+    if (!c) return;
+    const cells = row.querySelectorAll("td");
+    const statusCell = cells[cells.length - 1];
+    if (statusCell) statusCell.innerHTML = computeCountryStatus(c.overduePct, c.gt60Pct, c.gt90Pct, th);
+  });
+
+  document.querySelectorAll("#uacCountryTable tbody tr[data-country]").forEach(row => {
+    const c = byCountry[row.getAttribute("data-country")];
+    if (!c) return;
+    const cells = row.querySelectorAll("td");
+    const statusCell = cells[cells.length - 1];
+    if (statusCell) statusCell.innerHTML = computeUacStatus(c.uacPct, th);
+  });
+}
+
+function rebuildActionRequiredTable() {
+  const table = document.getElementById("actionRequiredTable");
+  if (!table || typeof customerDrilldownData === "undefined") return;
+  const tbody = table.querySelector("tbody");
+  if (!tbody) return;
+  const th = getEffectiveThresholds();
+  const latest = (dataQuality && dataQuality.latestMonth) || "";
+
+  const items = [];
+  customerDrilldownData.forEach(item => {
+    if (!(item.totalAR > 0)) return;
+    const reasons = [];
+    if (item.overduePct >= th.highOverduePct) reasons.push("Overdue % over threshold");
+    if (item.gt60Pct >= th.highGT60Pct) reasons.push("GT60 % over threshold");
+    if (item.gt90Pct >= th.highGT90Pct) reasons.push("GT90 % over threshold");
+    if (item.uacPct >= th.highUACPct) reasons.push("High unapplied cash");
+    if (reasons.length === 0) return;
+    items.push({
+      country: item.country, customer: item.customer, totalAR: item.totalAR, overdue: item.overdue,
+      overduePct: item.overduePct, gt90Pct: item.gt90Pct, uacPct: item.uacPct,
+      reason: reasons.join("; "), severity: item.overdue
+    });
+  });
+
+  items.sort((a, b) => b.severity - a.severity);
+  const top = items.slice(0, 20);
+
+  tbody.innerHTML = top.length > 0
+    ? top.map((item, i) =>
+        '<tr data-country="' + escapeHtmlClient(item.country) + '" data-customer="' + escapeHtmlClient(item.customer) + '">' +
+          "<td>" + (i + 1) + "</td>" +
+          "<td>" + escapeHtmlClient(item.country) + "</td>" +
+          '<td class="customer-name">' + escapeHtmlClient(item.customer) + "</td>" +
+          "<td>" + euro(item.totalAR) + "</td>" +
+          "<td>" + euro(item.overdue) + "</td>" +
+          "<td>" + pct(item.overduePct) + "</td>" +
+          "<td>" + pct(item.gt90Pct) + "</td>" +
+          "<td>" + pct(item.uacPct) + "</td>" +
+          '<td style="text-align:left;">' + escapeHtmlClient(item.reason) + "</td>" +
+        "</tr>"
+      ).join("")
+    : '<tr><td colspan="9">No customers currently breach the High-risk thresholds for ' + escapeHtmlClient(latest) + ".</td></tr>";
+}
+
+function recomputeThresholdDependentUi() {
+  safeRender(recomputeCountryStatuses);
+  safeRender(rebuildActionRequiredTable);
+}
+
+function populateThresholdInputs() {
+  const th = getEffectiveThresholds();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val * 100).toFixed(1); };
+  set("thWatchOverdue", th.watchOverduePct); set("thHighOverdue", th.highOverduePct);
+  set("thWatchGT60", th.watchGT60Pct); set("thHighGT60", th.highGT60Pct);
+  set("thWatchGT90", th.watchGT90Pct); set("thHighGT90", th.highGT90Pct);
+  set("thWatchUAC", th.watchUACPct); set("thHighUAC", th.highUACPct);
+}
+
+function openThresholdSettings() {
+  populateThresholdInputs();
+  const note = document.getElementById("thresholdStatusNote");
+  if (note) note.textContent = "";
+  const modal = document.getElementById("thresholdModal");
+  if (modal) modal.classList.add("show");
+}
+
+function closeThresholdSettings() {
+  const modal = document.getElementById("thresholdModal");
+  if (modal) modal.classList.remove("show");
+}
+
+function applyThresholdSettings() {
+  const get = id => Number(document.getElementById(id).value || 0) / 100;
+  const overrides = {
+    watchOverduePct: get("thWatchOverdue"), highOverduePct: get("thHighOverdue"),
+    watchGT60Pct: get("thWatchGT60"), highGT60Pct: get("thHighGT60"),
+    watchGT90Pct: get("thWatchGT90"), highGT90Pct: get("thHighGT90"),
+    watchUACPct: get("thWatchUAC"), highUACPct: get("thHighUAC")
+  };
+
+  const note = document.getElementById("thresholdStatusNote");
+  const warnings = [];
+  if (overrides.watchOverduePct > overrides.highOverduePct) warnings.push("Overdue: Watch is above High");
+  if (overrides.watchGT60Pct > overrides.highGT60Pct) warnings.push("GT60: Watch is above High");
+  if (overrides.watchGT90Pct > overrides.highGT90Pct) warnings.push("GT90: Watch is above High");
+  if (overrides.watchUACPct > overrides.highUACPct) warnings.push("UAC: Watch is above High");
+
+  try { localStorage.setItem(THRESHOLD_STORAGE_KEY, JSON.stringify(overrides)); } catch (e) { /* storage unavailable */ }
+  recomputeThresholdDependentUi();
+
+  if (note) {
+    note.innerHTML = warnings.length
+      ? '<span style="color:var(--status-warning, #b9760a);">Applied — but note: ' + warnings.join("; ") + ".</span>"
+      : '<span style="color:var(--status-good, #0f8a2e);">Applied to this browser.</span>';
+  }
+}
+
+function resetThresholdsToConfigured() {
+  try { localStorage.removeItem(THRESHOLD_STORAGE_KEY); } catch (e) { /* ignore */ }
+  populateThresholdInputs();
+  recomputeThresholdDependentUi();
+  const note = document.getElementById("thresholdStatusNote");
+  if (note) note.innerHTML = "Reset to the report's configured defaults.";
+}
+
 function init() {
   // Each step is isolated so a failure in a sandboxed viewer can't abort the rest.
   safeRender(initTheme);
@@ -3387,6 +3634,8 @@ function init() {
   safeRender(renderAgingCalibrationNote);
   safeRender(initDrilldownTables);
   safeRender(populateCustomerSimSelect);
+  // Apply any thresholds the user previously saved in this browser.
+  safeRender(recomputeThresholdDependentUi);
 
   // Open the tab referenced in the URL hash (deep-link), if any.
   safeRender(() => {

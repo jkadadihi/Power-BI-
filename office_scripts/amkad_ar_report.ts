@@ -931,7 +931,7 @@ function main(workbook: ExcelScript.Workbook) {
           ${Object.keys(countryData).filter(c => countryData[c][latestMonth]).map(country => {
     const agg = countryData[country][latestMonth];
     const uacP = pct(agg.uac, agg.totalAR);
-    return `<tr><td class="customer-name">${escapeHtml(country)}</td><td>${formatCurrency(agg.totalAR, currencySymbol)}</td><td>${formatCurrency(agg.uac, currencySymbol)}</td><td>${formatPercent(uacP)}</td><td>${formatCurrency(agg.overdue, currencySymbol)}</td><td>${formatCurrency(agg.payments, currencySymbol)}</td><td>${uacStatus(uacP)}</td></tr>`;
+    return `<tr data-country="${escapeHtml(country)}"><td class="customer-name">${escapeHtml(country)}</td><td>${formatCurrency(agg.totalAR, currencySymbol)}</td><td>${formatCurrency(agg.uac, currencySymbol)}</td><td>${formatPercent(uacP)}</td><td>${formatCurrency(agg.overdue, currencySymbol)}</td><td>${formatCurrency(agg.payments, currencySymbol)}</td><td>${uacStatus(uacP)}</td></tr>`;
   }).join("")}
         </tbody>
       </table>
@@ -1246,6 +1246,20 @@ function main(workbook: ExcelScript.Workbook) {
     CountryDrilldownJson: JSON.stringify(countryDrilldown),
     CustomerDrilldownJson: JSON.stringify(customerDrilldown),
     CustomerMoMJson: JSON.stringify(customerMoM),
-    DataQualityJson: JSON.stringify(dataQuality)
+    DataQualityJson: JSON.stringify(dataQuality),
+    // The actual resolved threshold values (from ReportConfigTbl, or the
+    // fallback defaults if unset) — sent so the report's client-side
+    // "Edit thresholds" panel starts from what's really configured, not a
+    // guessed value that could drift out of sync with the source workbook.
+    ThresholdsJson: JSON.stringify({
+      highOverduePct: highOverduePct,
+      watchOverduePct: watchOverduePct,
+      highGT60Pct: highGT60Pct,
+      watchGT60Pct: watchGT60Pct,
+      highGT90Pct: highGT90Pct,
+      watchGT90Pct: watchGT90Pct,
+      highUACPct: highUACPct,
+      watchUACPct: watchUACPct
+    })
   };
 }
