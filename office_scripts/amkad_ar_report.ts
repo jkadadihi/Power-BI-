@@ -704,7 +704,7 @@ function main(workbook: ExcelScript.Workbook) {
     let html = `
       <div class="customer-table-wrapper">
         <div class="customer-table-title">${escapeHtml(title)}</div>
-        <table class="customer-matrix searchable-table">
+        <table class="customer-matrix searchable-table customer-drilldown">
           <thead>
             <tr>
               <th>Customer</th>
@@ -828,7 +828,7 @@ function main(workbook: ExcelScript.Workbook) {
   const countrySummaryTable = showCountry ? `
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Country Summary — ${escapeHtml(latestMonth)}</div>
-      <table class="customer-matrix searchable-table" id="countrySummaryTable">
+      <table class="customer-matrix searchable-table country-drilldown" id="countrySummaryTable">
         <thead>
           <tr>
             <th>Country</th>
@@ -915,7 +915,7 @@ function main(workbook: ExcelScript.Workbook) {
   const uacCountryTable = showUAC && showCountry ? `
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Country UAC Summary — ${escapeHtml(latestMonth)}</div>
-      <table class="customer-matrix searchable-table" id="uacCountryTable">
+      <table class="customer-matrix searchable-table country-drilldown" id="uacCountryTable">
         <thead>
           <tr>
             <th>Country</th>
