@@ -2,18 +2,64 @@
   "CountryName": "Mexico",
   "ReportMonth": "June 2026",
   "TrendDataJson": [
-    {"month":"2026-01","totalAR":62550950},
-    {"month":"2026-02","totalAR":53416768},
-    {"month":"2026-03","totalAR":45724467},
-    {"month":"2026-05","totalAR":59298351},
-    {"month":"2026-06","totalAR":53691374}
+    {
+      "month": "2026-01",
+      "totalAR": 62550950
+    },
+    {
+      "month": "2026-02",
+      "totalAR": 53416768
+    },
+    {
+      "month": "2026-03",
+      "totalAR": 45724467
+    },
+    {
+      "month": "2026-05",
+      "totalAR": 59298351
+    },
+    {
+      "month": "2026-06",
+      "totalAR": 53691374
+    }
   ],
   "CountryDrilldownJson": [
-    {"country":"MX","totalAR":5251706.90,"overdue":1041865.94,"overduePct":0.1984,"gt60":1334661.38,"gt60Pct":0.2541,"gt90":608146.11,"gt90Pct":0.1158}
+    {
+      "country": "MX",
+      "totalAR": 5251706.9,
+      "overdue": 1041865.94,
+      "overduePct": 0.1984,
+      "gt60": 1334661.38,
+      "gt60Pct": 0.2541,
+      "gt90": 608146.11,
+      "gt90Pct": 0.1158
+    }
   ],
   "CustomerDrilldownJson": [
-    {"country":"MX","customer":"Nokia","totalAR":1988894,"overdue":97824,"gt60":539863,"gt90":90706},
-    {"country":"MX","customer":"Lenovo/Motorola","totalAR":945571,"overdue":447829,"gt60":403740,"gt90":216363},
-    {"country":"MX","customer":"Dell Technologies","totalAR":407812,"overdue":162356,"gt60":235220,"gt90":162363}
-  ]
+    {
+      "country": "MX",
+      "customer": "Nokia",
+      "totalAR": 1988894,
+      "overdue": 97824,
+      "gt60": 539863,
+      "gt90": 90706
+    },
+    {
+      "country": "MX",
+      "customer": "Lenovo/Motorola",
+      "totalAR": 945571,
+      "overdue": 447829,
+      "gt60": 403740,
+      "gt90": 216363
+    },
+    {
+      "country": "MX",
+      "customer": "Dell Technologies",
+      "totalAR": 407812,
+      "overdue": 162356,
+      "gt60": 235220,
+      "gt90": 162363
+    }
+  ],
+  "CountryCode": "MX"
 }
