@@ -1423,8 +1423,16 @@ mark.search-hit {
           <input id="simCustPay6090" type="number" value="0" min="0" step="1000">
         </div>
         <div class="sim-field">
-          <label>Applied to 0–60 days</label>
+          <label>Applied to 0–60 days (overdue)</label>
           <input id="simCustPay060" type="number" value="0" min="0" step="1000">
+        </div>
+        <div class="sim-field">
+          <label>Applied to AR not yet overdue</label>
+          <input id="simCustPayCurrent" type="number" value="0" min="0" step="1000">
+        </div>
+        <div class="sim-field">
+          <label>Left as Unapplied Cash (UAC)</label>
+          <input id="simCustPayUAC" type="number" value="0" min="0" step="1000">
         </div>
       </div>
 
@@ -1444,7 +1452,10 @@ mark.search-hit {
         Uses this customer's current position aggregated across all countries. When aging roll-forward is on,
         it uses the same history-calibrated rates as the portfolio simulator above. Manual allocation pays down
         disjoint aging bands directly (a euro applied to ">90" also reduces the 60+ and overdue totals it's
-        part of, since those buckets are cumulative, not separate pools).
+        part of, since those buckets are cumulative, not separate pools). "Applied to AR not yet overdue"
+        reduces Total AR without touching Overdue/GT60/GT90. "Left as Unapplied Cash" increases UAC instead of
+        paying down any invoice — Total AR is unaffected. In Manual mode the Payment type dropdown above is
+        ignored; each band's destination is set explicitly by these fields instead.
       </div>
     </div>
 
@@ -2190,22 +2201,22 @@ function runNextMonthSimulation() {
   document.getElementById("simGT90Pct").innerHTML = pct(simGT90Pct);
   document.getElementById("simUAC").innerHTML = euro(simUAC);
 
-  document.getElementById("simTotalARChange").innerHTML = "Change vs current: " + formatMoneyChange(simAR - currentData.totalAR, false);
+  document.getElementById("simTotalARChange").innerHTML = "Change vs current: " + formatMoneyChange(simAR - currentData.totalAR, true);
   document.getElementById("simOverdueChange").innerHTML = "Change vs current: " + formatMoneyChange(simOverdue - currentData.overdue, true);
   document.getElementById("simOverduePctChange").innerHTML = "Change vs current: " + formatPctPointChange(simOverduePct - currentOverduePct, true);
   document.getElementById("simGT60PctChange").innerHTML = "Change vs current: " + formatPctPointChange(simGT60Pct - currentGT60Pct, true);
   document.getElementById("simGT90PctChange").innerHTML = "Change vs current: " + formatPctPointChange(simGT90Pct - currentGT90Pct, true);
-  document.getElementById("simUACChange").innerHTML = "Change vs current: " + formatMoneyChange(simUAC - currentData.uac, false);
+  document.getElementById("simUACChange").innerHTML = "Change vs current: " + formatMoneyChange(simUAC - currentData.uac, true);
 
   const rows = [
-    ["Total AR", euro(currentData.totalAR), euro(simAR), formatMoneyChange(simAR - currentData.totalAR, false)],
+    ["Total AR", euro(currentData.totalAR), euro(simAR), formatMoneyChange(simAR - currentData.totalAR, true)],
     ["Overdue", euro(currentData.overdue), euro(simOverdue), formatMoneyChange(simOverdue - currentData.overdue, true)],
     ["Overdue %", pct(currentOverduePct), pct(simOverduePct), formatPctPointChange(simOverduePct - currentOverduePct, true)],
     ["GT60", euro(currentData.gt60), euro(simGT60), formatMoneyChange(simGT60 - currentData.gt60, true)],
     ["GT60 %", pct(currentGT60Pct), pct(simGT60Pct), formatPctPointChange(simGT60Pct - currentGT60Pct, true)],
     ["GT90", euro(currentData.gt90), euro(simGT90), formatMoneyChange(simGT90 - currentData.gt90, true)],
     ["GT90 %", pct(currentGT90Pct), pct(simGT90Pct), formatPctPointChange(simGT90Pct - currentGT90Pct, true)],
-    ["UAC", euro(currentData.uac), euro(simUAC), formatMoneyChange(simUAC - currentData.uac, false)]
+    ["UAC", euro(currentData.uac), euro(simUAC), formatMoneyChange(simUAC - currentData.uac, true)]
   ];
 
   let tableHtml = "";
@@ -2335,15 +2346,19 @@ function toggleCustSimAllocationFields() {
 // Pay down disjoint aging bands directly. Buckets are cumulative
 // (gt90 ⊆ gt60 ⊆ overdue ⊆ totalAR), so a euro applied to the ">90" band
 // also has to come out of gt60, overdue, and totalAR — it isn't a separate
-// pool of money.
-function applyManualBandPayment(payGT90, pay6090, pay060, overdue, gt60, gt90) {
-  const total = payGT90 + pay6090 + pay060;
+// pool of money. payCurrent (AR not yet overdue) only reduces totalAR.
+// UAC is handled separately by the caller since it doesn't reduce totalAR.
+function applyManualBandPayment(payGT90, pay6090, pay060, payCurrent, overdue, gt60, gt90, totalAR) {
+  const appliedToOverdue = payGT90 + pay6090 + pay060;
+  const appliedTotal = appliedToOverdue + payCurrent;
   gt90 = Math.max(gt90 - payGT90, 0);
   gt60 = Math.max(gt60 - payGT90 - pay6090, 0);
-  overdue = Math.max(overdue - total, 0);
+  overdue = Math.max(overdue - appliedToOverdue, 0);
+  totalAR = Math.max(totalAR - appliedTotal, 0);
   gt90 = Math.min(gt90, gt60);
   gt60 = Math.min(gt60, overdue);
-  return { overdue, gt60, gt90, totalPaid: total };
+  overdue = Math.min(overdue, totalAR);
+  return { overdue, gt60, gt90, totalAR, appliedTotal };
 }
 
 function runCustomerSimulation() {
@@ -2377,23 +2392,29 @@ function runCustomerSimulation() {
   let simUAC = cust.uac;
   let paymentAmount = 0;
 
-  if (paymentType === "applied") {
-    if (allocation === "manual") {
-      const payGT90 = Number(document.getElementById("simCustPayGT90").value || 0);
-      const pay6090 = Number(document.getElementById("simCustPay6090").value || 0);
-      const pay060 = Number(document.getElementById("simCustPay060").value || 0);
-      const result = applyManualBandPayment(payGT90, pay6090, pay060, simOverdue, simGT60, simGT90);
-      simOverdue = result.overdue; simGT60 = result.gt60; simGT90 = result.gt90;
-      paymentAmount = result.totalPaid;
-    } else {
-      paymentAmount = Number(document.getElementById("simCustPaymentAmount").value || 0);
-      const result = allocation === "oldest"
-        ? applyOldestFirst(paymentAmount, simOverdue, simGT60, simGT90)
-        : applyProportional(paymentAmount, simOverdue, simGT60, simGT90);
-      simOverdue = result.overdue;
-      simGT60 = result.gt60;
-      simGT90 = result.gt90;
-    }
+  if (allocation === "manual") {
+    // Manual mode sets each destination explicitly, including UAC, so the
+    // Payment type dropdown above is bypassed entirely here.
+    const payGT90 = Number(document.getElementById("simCustPayGT90").value || 0);
+    const pay6090 = Number(document.getElementById("simCustPay6090").value || 0);
+    const pay060 = Number(document.getElementById("simCustPay060").value || 0);
+    const payCurrent = Number(document.getElementById("simCustPayCurrent").value || 0);
+    const payUAC = Number(document.getElementById("simCustPayUAC").value || 0);
+    const result = applyManualBandPayment(payGT90, pay6090, pay060, payCurrent, simOverdue, simGT60, simGT90, simAR);
+    simOverdue = result.overdue;
+    simGT60 = result.gt60;
+    simGT90 = result.gt90;
+    simAR = result.totalAR;
+    simUAC = cust.uac + payUAC;
+    paymentAmount = result.appliedTotal + payUAC;
+  } else if (paymentType === "applied") {
+    paymentAmount = Number(document.getElementById("simCustPaymentAmount").value || 0);
+    const result = allocation === "oldest"
+      ? applyOldestFirst(paymentAmount, simOverdue, simGT60, simGT90)
+      : applyProportional(paymentAmount, simOverdue, simGT60, simGT90);
+    simOverdue = result.overdue;
+    simGT60 = result.gt60;
+    simGT90 = result.gt90;
     simAR = Math.max(cust.totalAR - paymentAmount, 0);
   } else {
     paymentAmount = Number(document.getElementById("simCustPaymentAmount").value || 0);
@@ -2419,14 +2440,14 @@ function runCustomerSimulation() {
   if (nameEl) nameEl.textContent = selected;
 
   const rows = [
-    ["Total AR", euro(cust.totalAR), euro(simAR), formatMoneyChange(simAR - cust.totalAR, false)],
+    ["Total AR", euro(cust.totalAR), euro(simAR), formatMoneyChange(simAR - cust.totalAR, true)],
     ["Overdue", euro(cust.overdue), euro(simOverdue), formatMoneyChange(simOverdue - cust.overdue, true)],
     ["Overdue %", pct(curOverduePct), pct(simOverduePct), formatPctPointChange(simOverduePct - curOverduePct, true)],
     ["GT60", euro(cust.gt60), euro(simGT60), formatMoneyChange(simGT60 - cust.gt60, true)],
     ["GT60 %", pct(curGT60Pct), pct(simGT60Pct), formatPctPointChange(simGT60Pct - curGT60Pct, true)],
     ["GT90", euro(cust.gt90), euro(simGT90), formatMoneyChange(simGT90 - cust.gt90, true)],
     ["GT90 %", pct(curGT90Pct), pct(simGT90Pct), formatPctPointChange(simGT90Pct - curGT90Pct, true)],
-    ["UAC", euro(cust.uac), euro(simUAC), formatMoneyChange(simUAC - cust.uac, false)]
+    ["UAC", euro(cust.uac), euro(simUAC), formatMoneyChange(simUAC - cust.uac, true)]
   ];
 
   tableEl.innerHTML = rows.map(r =>
@@ -2442,6 +2463,8 @@ function resetCustomerSimulation() {
   document.getElementById("simCustPayGT90").value = 0;
   document.getElementById("simCustPay6090").value = 0;
   document.getElementById("simCustPay060").value = 0;
+  document.getElementById("simCustPayCurrent").value = 0;
+  document.getElementById("simCustPayUAC").value = 0;
   document.getElementById("simCustApplyAging").checked = true;
   toggleCustSimAllocationFields();
   document.getElementById("custSimName").textContent = "Select a customer";
