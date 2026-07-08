@@ -966,7 +966,28 @@ function main(workbook: ExcelScript.Workbook) {
     </div>` : "";
 
   // Build a real, ranked list of items that breach the High thresholds.
-  type ActionItem = { country: string; customer: string; totalAR: number; overdue: number; overduePct: number; gt90Pct: number; uacPct: number; reason: string; severity: number };
+  type ActionItem = { country: string; customer: string; totalAR: number; overdue: number; overduePct: number; gt60Pct: number; gt90Pct: number; uacPct: number; reason: string; severity: number };
+
+  // Approximate mapping from our AR-aging buckets onto the collections escalation
+  // ladder (call cadence -> Final Demand Letter -> Stop Credit review). We only have
+  // bucketed aging (Overdue / GT60 / GT90), not per-invoice days-overdue, so this is a
+  // coarse proxy, not a precise day-threshold match — always labeled "Potential" and
+  // requires human review before any credit action is actually taken.
+  function potentialNextStep(overdueP: number, gt60P: number, gt90P: number, hasHighUac: boolean): string {
+    if (gt90P >= highGT90Pct) {
+      return "Potential: flag for Stop Credit review (Sales Manager) — needs revision, do not action automatically";
+    }
+    if (gt60P >= highGT60Pct) {
+      return "Potential: escalate to Sales Executive/CFO, consider Final Demand Letter — needs review";
+    }
+    if (overdueP >= highOverduePct) {
+      return "Potential: continue call/letter cadence (Collector) — needs review";
+    }
+    if (hasHighUac) {
+      return "Potential: investigate and apply unapplied cash — needs review";
+    }
+    return "Potential: monitor — needs review";
+  }
 
   const actionItems: ActionItem[] = [];
 
@@ -996,6 +1017,7 @@ function main(workbook: ExcelScript.Workbook) {
         totalAR: agg.totalAR,
         overdue: agg.overdue,
         overduePct: overdueP,
+        gt60Pct: gt60P,
         gt90Pct: gt90P,
         uacPct: uacP,
         reason: reasons.join("; "),
@@ -1017,12 +1039,14 @@ function main(workbook: ExcelScript.Workbook) {
               <td>${formatPercent(item.gt90Pct)}</td>
               <td>${formatPercent(item.uacPct)}</td>
               <td style="text-align:left;">${escapeHtml(item.reason)}</td>
+              <td style="text-align:left;">${escapeHtml(potentialNextStep(item.overduePct, item.gt60Pct, item.gt90Pct, item.uacPct >= highUACPct))}</td>
             </tr>`).join("")
-    : `<tr><td colspan="9">No customers currently breach the High-risk thresholds for ${escapeHtml(latestMonth)}.</td></tr>`;
+    : `<tr><td colspan="10">No customers currently breach the High-risk thresholds for ${escapeHtml(latestMonth)}.</td></tr>`;
 
   const actionRequiredTable = `
     <div class="customer-table-wrapper">
       <div class="customer-table-title">Action Required — Customers Breaching High-Risk Thresholds (${escapeHtml(latestMonth)})</div>
+      <div class="customer-table-note">Potential Next Step is an approximate mapping from AR-aging buckets (Overdue / GT60 / GT90) onto the collections escalation ladder. It is not based on exact days-overdue and must be reviewed by a person before any credit action — including Stop Credit — is taken.</div>
       <table class="customer-matrix searchable-table" id="actionRequiredTable">
         <thead>
           <tr>
@@ -1035,6 +1059,7 @@ function main(workbook: ExcelScript.Workbook) {
             <th>GT90 %</th>
             <th>UAC %</th>
             <th>Reason</th>
+            <th>Potential Next Step (needs review)</th>
           </tr>
         </thead>
         <tbody>

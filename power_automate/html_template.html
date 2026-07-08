@@ -367,6 +367,13 @@ h1 {
   color: var(--ink);
 }
 
+.customer-table-note {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: -6px 0 12px;
+  font-style: italic;
+}
+
 .customer-matrix {
   width: 100%;
   border-collapse: collapse;
@@ -3588,6 +3595,26 @@ function recomputeCountryStatuses() {
   });
 }
 
+function potentialNextStepClient(overduePct, gt60Pct, gt90Pct, hasHighUac, th) {
+  // Approximate mapping from AR-aging buckets onto the collections escalation ladder.
+  // Not based on exact days-overdue — always "Potential" and needs human review before
+  // any credit action (including Stop Credit) is actually taken. Mirrors the Office
+  // Script's potentialNextStep() so server and client agree after a threshold edit.
+  if (gt90Pct >= th.highGT90Pct) {
+    return "Potential: flag for Stop Credit review (Sales Manager) — needs revision, do not action automatically";
+  }
+  if (gt60Pct >= th.highGT60Pct) {
+    return "Potential: escalate to Sales Executive/CFO, consider Final Demand Letter — needs review";
+  }
+  if (overduePct >= th.highOverduePct) {
+    return "Potential: continue call/letter cadence (Collector) — needs review";
+  }
+  if (hasHighUac) {
+    return "Potential: investigate and apply unapplied cash — needs review";
+  }
+  return "Potential: monitor — needs review";
+}
+
 function rebuildActionRequiredTable() {
   const table = document.getElementById("actionRequiredTable");
   if (!table || typeof customerDrilldownData === "undefined") return;
@@ -3607,7 +3634,7 @@ function rebuildActionRequiredTable() {
     if (reasons.length === 0) return;
     items.push({
       country: item.country, customer: item.customer, totalAR: item.totalAR, overdue: item.overdue,
-      overduePct: item.overduePct, gt90Pct: item.gt90Pct, uacPct: item.uacPct,
+      overduePct: item.overduePct, gt60Pct: item.gt60Pct, gt90Pct: item.gt90Pct, uacPct: item.uacPct,
       reason: reasons.join("; "), severity: item.overdue
     });
   });
@@ -3627,9 +3654,10 @@ function rebuildActionRequiredTable() {
           "<td>" + pct(item.gt90Pct) + "</td>" +
           "<td>" + pct(item.uacPct) + "</td>" +
           '<td style="text-align:left;">' + escapeHtmlClient(item.reason) + "</td>" +
+          '<td style="text-align:left;">' + escapeHtmlClient(potentialNextStepClient(item.overduePct, item.gt60Pct, item.gt90Pct, item.uacPct >= th.highUACPct, th)) + "</td>" +
         "</tr>"
       ).join("")
-    : '<tr><td colspan="9">No customers currently breach the High-risk thresholds for ' + escapeHtmlClient(latest) + ".</td></tr>";
+    : '<tr><td colspan="10">No customers currently breach the High-risk thresholds for ' + escapeHtmlClient(latest) + ".</td></tr>";
 }
 
 function recomputeThresholdDependentUi() {
