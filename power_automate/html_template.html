@@ -2598,11 +2598,12 @@ function renderCustomerDrilldown() {
 function trendChangeClass(change, lowerIsBetter) {
   if (Math.abs(change) < 0.000001) return "trend-flat";
 
-  if (lowerIsBetter) {
-    return change < 0 ? "trend-down" : "trend-up";
-  }
-
-  return change > 0 ? "trend-up" : "trend-down";
+  const isIncrease = change > 0;
+  const good = lowerIsBetter ? !isIncrease : isIncrease;
+  // trend-down is styled green (good), trend-up is styled red (bad) — the
+  // class name reflects goodness, not literal direction, so metrics where
+  // higher is better (Total AR, Payments) color correctly too.
+  return good ? "trend-down" : "trend-up";
 }
 
 function renderTrendMeta(metaId, valueField, formatter, lowerIsBetter) {
