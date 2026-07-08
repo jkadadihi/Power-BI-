@@ -1115,7 +1115,7 @@ mark.search-hit {
       equivalent to <strong>@{outputs('Run_script')?['body/result']?['UACPctOfAR']}</strong> of Total AR.
       Total payments are <strong>@{outputs('Run_script')?['body/result']?['TotalPayments']}</strong>,
       with payments vs gross sales at <strong>@{outputs('Run_script')?['body/result']?['PaymentsVsGrossSales']}</strong>.
-      The estimated overdue after UAC offset is <strong>@{outputs('Run_script')?['body/result']?['NetOverdueEstimate']}</strong>.
+      The estimated Total AR after UAC offset is <strong>@{outputs('Run_script')?['body/result']?['NetARAfterUAC']}</strong>.
       <br><br>
       <span class="badge">Use this report for AR review, UAC follow-up, customer prioritization, scenario planning, and PDF export.</span>
     </div>
@@ -1197,9 +1197,9 @@ mark.search-hit {
       </div>
 
       <div class="card red">
-        <div class="card-title">Net Overdue Estimate</div>
-        <div class="card-value">@{outputs('Run_script')?['body/result']?['NetOverdueEstimate']}</div>
-        <div class="card-note">Estimate only: Overdue minus UAC.</div>
+        <div class="card-title">Net AR after UAC</div>
+        <div class="card-value">@{outputs('Run_script')?['body/result']?['NetARAfterUAC']}</div>
+        <div class="card-note">Estimate only: Total AR minus UAC — unapplied cash can offset any open invoice, not just overdue ones.</div>
       </div>
 
       <div class="card gray">
@@ -1382,11 +1382,6 @@ mark.search-hit {
         </div>
 
         <div class="sim-field">
-          <label>Amount expected to be paid</label>
-          <input id="simCustPaymentAmount" type="number" value="0" min="0" step="1000">
-        </div>
-
-        <div class="sim-field">
           <label>Payment type</label>
           <select id="simCustPaymentType">
             <option value="applied">Applied Cash - reduces AR and overdue</option>
@@ -1396,10 +1391,40 @@ mark.search-hit {
 
         <div class="sim-field">
           <label>Allocation method</label>
-          <select id="simCustAllocation">
+          <select id="simCustAllocation" onchange="toggleCustSimAllocationFields()">
             <option value="oldest">Oldest First - GT90, then GT60, then overdue</option>
             <option value="proportional">Proportional - spread across aging buckets</option>
+            <option value="manual">Manual - I'll specify the amount per band</option>
           </select>
+        </div>
+      </div>
+
+      <div class="simulator-grid" id="custSimAutoAmountRow" style="margin-top:14px;">
+        <div class="sim-field">
+          <label>Amount expected to be paid</label>
+          <input id="simCustPaymentAmount" type="number" value="0" min="0" step="1000">
+        </div>
+      </div>
+
+      <div class="simulator-grid" id="custSimManualAmountRow" style="margin-top:14px; display:none;">
+        <div class="sim-field">
+          <label>Applied to &gt;90 days</label>
+          <input id="simCustPayGT90" type="number" value="0" min="0" step="1000">
+        </div>
+        <div class="sim-field">
+          <label>Applied to 60–90 days</label>
+          <input id="simCustPay6090" type="number" value="0" min="0" step="1000">
+        </div>
+        <div class="sim-field">
+          <label>Applied to 0–60 days</label>
+          <input id="simCustPay060" type="number" value="0" min="0" step="1000">
+        </div>
+      </div>
+
+      <div class="simulator-grid" style="margin-top:14px;">
+        <div class="sim-field" style="flex-direction:row; align-items:center; gap:8px;">
+          <input type="checkbox" id="simCustApplyAging" checked style="width:16px; height:16px; margin:0;">
+          <label style="margin:0;">Apply natural aging roll-forward (uncheck to isolate the payment's effect only)</label>
         </div>
       </div>
 
@@ -1409,8 +1434,10 @@ mark.search-hit {
       </div>
 
       <div class="sim-note">
-        Uses this customer's current position aggregated across all countries. Aging roll-forward uses the
-        same history-calibrated rates as the portfolio simulator above.
+        Uses this customer's current position aggregated across all countries. When aging roll-forward is on,
+        it uses the same history-calibrated rates as the portfolio simulator above. Manual allocation pays down
+        disjoint aging bands directly (a euro applied to ">90" also reduces the 60+ and overdue totals it's
+        part of, since those buckets are cumulative, not separate pools).
       </div>
     </div>
 
@@ -2289,6 +2316,29 @@ function populateCustomerSimSelect() {
   });
 }
 
+function toggleCustSimAllocationFields() {
+  const allocation = document.getElementById("simCustAllocation").value;
+  const autoRow = document.getElementById("custSimAutoAmountRow");
+  const manualRow = document.getElementById("custSimManualAmountRow");
+  const isManual = allocation === "manual";
+  if (autoRow) autoRow.style.display = isManual ? "none" : "";
+  if (manualRow) manualRow.style.display = isManual ? "" : "none";
+}
+
+// Pay down disjoint aging bands directly. Buckets are cumulative
+// (gt90 ⊆ gt60 ⊆ overdue ⊆ totalAR), so a euro applied to the ">90" band
+// also has to come out of gt60, overdue, and totalAR — it isn't a separate
+// pool of money.
+function applyManualBandPayment(payGT90, pay6090, pay060, overdue, gt60, gt90) {
+  const total = payGT90 + pay6090 + pay060;
+  gt90 = Math.max(gt90 - payGT90, 0);
+  gt60 = Math.max(gt60 - payGT90 - pay6090, 0);
+  overdue = Math.max(overdue - total, 0);
+  gt90 = Math.min(gt90, gt60);
+  gt60 = Math.min(gt60, overdue);
+  return { overdue, gt60, gt90, totalPaid: total };
+}
+
 function runCustomerSimulation() {
   const selected = document.getElementById("simCustomerSelect").value;
   const nameEl = document.getElementById("custSimName");
@@ -2308,9 +2358,9 @@ function runCustomerSimulation() {
     return;
   }
 
-  const paymentAmount = Number(document.getElementById("simCustPaymentAmount").value || 0);
   const paymentType = document.getElementById("simCustPaymentType").value;
   const allocation = document.getElementById("simCustAllocation").value;
+  const applyAging = document.getElementById("simCustApplyAging").checked;
   const agingRates = getAgingRates();
 
   let simAR = cust.totalAR;
@@ -2318,25 +2368,39 @@ function runCustomerSimulation() {
   let simGT60 = cust.gt60;
   let simGT90 = cust.gt90;
   let simUAC = cust.uac;
+  let paymentAmount = 0;
 
   if (paymentType === "applied") {
-    const result = allocation === "oldest"
-      ? applyOldestFirst(paymentAmount, simOverdue, simGT60, simGT90)
-      : applyProportional(paymentAmount, simOverdue, simGT60, simGT90);
-    simOverdue = result.overdue;
-    simGT60 = result.gt60;
-    simGT90 = result.gt90;
+    if (allocation === "manual") {
+      const payGT90 = Number(document.getElementById("simCustPayGT90").value || 0);
+      const pay6090 = Number(document.getElementById("simCustPay6090").value || 0);
+      const pay060 = Number(document.getElementById("simCustPay060").value || 0);
+      const result = applyManualBandPayment(payGT90, pay6090, pay060, simOverdue, simGT60, simGT90);
+      simOverdue = result.overdue; simGT60 = result.gt60; simGT90 = result.gt90;
+      paymentAmount = result.totalPaid;
+    } else {
+      paymentAmount = Number(document.getElementById("simCustPaymentAmount").value || 0);
+      const result = allocation === "oldest"
+        ? applyOldestFirst(paymentAmount, simOverdue, simGT60, simGT90)
+        : applyProportional(paymentAmount, simOverdue, simGT60, simGT90);
+      simOverdue = result.overdue;
+      simGT60 = result.gt60;
+      simGT90 = result.gt90;
+    }
     simAR = Math.max(cust.totalAR - paymentAmount, 0);
   } else {
+    paymentAmount = Number(document.getElementById("simCustPaymentAmount").value || 0);
     simUAC = cust.uac + paymentAmount;
   }
 
-  const overdueToGT60 = Math.max(simOverdue - simGT60, 0) * agingRates.overdueToGT60;
-  const gt60ToGT90 = Math.max(simGT60 - simGT90, 0) * agingRates.gt60ToGT90;
-  simGT60 = simGT60 + overdueToGT60;
-  simGT90 = simGT90 + gt60ToGT90;
-  simGT90 = Math.min(simGT90, simGT60);
-  simGT60 = Math.min(simGT60, simOverdue);
+  if (applyAging) {
+    const overdueToGT60 = Math.max(simOverdue - simGT60, 0) * agingRates.overdueToGT60;
+    const gt60ToGT90 = Math.max(simGT60 - simGT90, 0) * agingRates.gt60ToGT90;
+    simGT60 = simGT60 + overdueToGT60;
+    simGT90 = simGT90 + gt60ToGT90;
+    simGT90 = Math.min(simGT90, simGT60);
+    simGT60 = Math.min(simGT60, simOverdue);
+  }
 
   const curOverduePct = safeDivide(cust.overdue, cust.totalAR);
   const curGT60Pct = safeDivide(cust.gt60, cust.totalAR);
@@ -2368,6 +2432,11 @@ function resetCustomerSimulation() {
   document.getElementById("simCustPaymentAmount").value = 0;
   document.getElementById("simCustPaymentType").value = "applied";
   document.getElementById("simCustAllocation").value = "oldest";
+  document.getElementById("simCustPayGT90").value = 0;
+  document.getElementById("simCustPay6090").value = 0;
+  document.getElementById("simCustPay060").value = 0;
+  document.getElementById("simCustApplyAging").checked = true;
+  toggleCustSimAllocationFields();
   document.getElementById("custSimName").textContent = "Select a customer";
   document.getElementById("custSimComparisonTable").innerHTML = "<tr><td colspan='4'>Choose a customer and run the simulation.</td></tr>";
 }

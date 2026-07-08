@@ -687,7 +687,10 @@ function main(workbook: ExcelScript.Workbook) {
   const gt90PctValue = pct(latestAgg.gt90, latestAgg.totalAR);
   const uacPctValue = pct(latestAgg.uac, latestAgg.totalAR);
   const paymentsVsGrossSalesValue = pct(latestAgg.payments, latestAgg.grossSales);
-  const netOverdueEstimateValue = latestAgg.overdue - latestAgg.uac;
+  // UAC (unapplied cash) can be matched against ANY open invoice, not just
+  // overdue ones — so the honest "what's left after UAC" figure nets it
+  // against Total AR, not specifically against Overdue.
+  const netARAfterUACValue = latestAgg.totalAR - latestAgg.uac;
 
   const topCustomers = Object.keys(customerData)
     .filter(c => customerData[c][latestMonth])
@@ -898,7 +901,7 @@ function main(workbook: ExcelScript.Workbook) {
             <th>UAC</th>
             <th>UAC %</th>
             <th>Overdue</th>
-            <th>Net Overdue</th>
+            <th>Net AR</th>
             <th>Payments</th>
           </tr>
         </thead>
@@ -906,7 +909,7 @@ function main(workbook: ExcelScript.Workbook) {
           ${Object.keys(customerCountryData).filter(k => customerCountryData[k].months[latestMonth]).sort((a, b) => customerCountryData[b].months[latestMonth].uac - customerCountryData[a].months[latestMonth].uac).slice(0, 10).map((key, i) => {
     const item = customerCountryData[key];
     const agg = item.months[latestMonth];
-    return `<tr><td>${i + 1}</td><td>${escapeHtml(item.country)}</td><td class="customer-name">${escapeHtml(item.customer)}</td><td>${formatCurrency(agg.totalAR, currencySymbol)}</td><td>${formatCurrency(agg.uac, currencySymbol)}</td><td>${formatPercent(pct(agg.uac, agg.totalAR))}</td><td>${formatCurrency(agg.overdue, currencySymbol)}</td><td>${formatCurrency(agg.overdue - agg.uac, currencySymbol)}</td><td>${formatCurrency(agg.payments, currencySymbol)}</td></tr>`;
+    return `<tr><td>${i + 1}</td><td>${escapeHtml(item.country)}</td><td class="customer-name">${escapeHtml(item.customer)}</td><td>${formatCurrency(agg.totalAR, currencySymbol)}</td><td>${formatCurrency(agg.uac, currencySymbol)}</td><td>${formatPercent(pct(agg.uac, agg.totalAR))}</td><td>${formatCurrency(agg.overdue, currencySymbol)}</td><td>${formatCurrency(agg.totalAR - agg.uac, currencySymbol)}</td><td>${formatCurrency(agg.payments, currencySymbol)}</td></tr>`;
   }).join("")}
         </tbody>
       </table>
@@ -948,7 +951,7 @@ function main(workbook: ExcelScript.Workbook) {
             <th>UAC</th>
             <th>UAC %</th>
             <th>Overdue</th>
-            <th>Net Overdue</th>
+            <th>Net AR</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -956,7 +959,7 @@ function main(workbook: ExcelScript.Workbook) {
           ${Object.keys(customerCountryData).filter(k => customerCountryData[k].months[latestMonth]).slice(0, 15).map(key => {
     const item = customerCountryData[key];
     const agg = item.months[latestMonth];
-    return `<tr><td>${escapeHtml(item.country)}</td><td class="customer-name">${escapeHtml(item.customer)}</td><td>${formatCurrency(agg.uac, currencySymbol)}</td><td>${formatPercent(pct(agg.uac, agg.totalAR))}</td><td>${formatCurrency(agg.overdue, currencySymbol)}</td><td>${formatCurrency(agg.overdue - agg.uac, currencySymbol)}</td><td>Review</td></tr>`;
+    return `<tr><td>${escapeHtml(item.country)}</td><td class="customer-name">${escapeHtml(item.customer)}</td><td>${formatCurrency(agg.uac, currencySymbol)}</td><td>${formatPercent(pct(agg.uac, agg.totalAR))}</td><td>${formatCurrency(agg.overdue, currencySymbol)}</td><td>${formatCurrency(agg.totalAR - agg.uac, currencySymbol)}</td><td>Review</td></tr>`;
   }).join("")}
         </tbody>
       </table>
@@ -1214,7 +1217,7 @@ function main(workbook: ExcelScript.Workbook) {
     UACPctOfAR: formatPercent(uacPctValue),
     TotalPayments: formatCurrency(latestAgg.payments, currencySymbol),
     PaymentsVsGrossSales: formatPercent(paymentsVsGrossSalesValue),
-    NetOverdueEstimate: formatCurrency(netOverdueEstimateValue, currencySymbol),
+    NetARAfterUAC: formatCurrency(netARAfterUACValue, currencySymbol),
 
     TotalARNumeric: latestAgg.totalAR,
     TotalOverdueNumeric: latestAgg.overdue,
