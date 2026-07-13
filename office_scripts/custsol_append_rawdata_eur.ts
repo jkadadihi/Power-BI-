@@ -9,11 +9,9 @@
  * dragged a formula down manually — so this script never needs to know
  * what those formulas are.
  *
- * TODO before first run: confirm the actual table name below by clicking any
- * cell inside "Raw Data EUR" in Excel and checking Table Design > Table Name
- * (top-left). Replace RAW_DATA_EUR_TABLE_NAME if it isn't "RawDataEUR".
+ * Table name confirmed as "RawData" (Table Design > Table Name).
  */
-const RAW_DATA_EUR_TABLE_NAME = "RawDataEUR";
+const RAW_DATA_EUR_TABLE_NAME = "RawData";
 
 function main(workbook: ExcelScript.Workbook, sourceJson: string): string {
   const parsed = JSON.parse(sourceJson) as {
