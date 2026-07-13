@@ -57,10 +57,26 @@ function main(workbook: ExcelScript.Workbook, sourceJson: string): string {
     totalPayments: colIndex("Total Payments")
   };
 
+  // Duplicate guard: if this script ever runs twice against the same file
+  // (retry, manual re-run), don't add the same Date+Country+Customer combo
+  // twice. Build a lookup of what's already in the table before appending.
+  const existingValues = table.getRangeBetweenHeaderAndTotal().getValues();
+  const existingKeys = new Set<string>(
+    existingValues.map(row => dedupeKey(row[destIdx.date], row[destIdx.country], row[destIdx.customer]))
+  );
+
   const columnCount = headerNames.length;
   const newRows: (number | string | null)[][] = [];
+  let skippedDuplicates = 0;
 
   parsed.rows.forEach(r => {
+    const key = dedupeKey(r.reportDate, r.countryCode, r.customerName);
+    if (existingKeys.has(key)) {
+      skippedDuplicates++;
+      return;
+    }
+    existingKeys.add(key); // guard against duplicates within the same incoming batch too
+
     const rowValues: (number | string | null)[] = new Array(columnCount).fill(null);
     rowValues[destIdx.date] = r.reportDate as string;
     rowValues[destIdx.country] = r.countryCode as string;
@@ -96,6 +112,7 @@ function main(workbook: ExcelScript.Workbook, sourceJson: string): string {
 
   return JSON.stringify({
     rowsAppended: newRows.length,
+    skippedDuplicates: skippedDuplicates,
     missingEuroRows: parsed.missingEuroRows,
     needsReview: parsed.missingEuroRows > 0
   });
@@ -105,4 +122,14 @@ function round0(value: number | string | null): number | null {
   if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   return isFinite(n) ? Math.round(n) : null;
+}
+
+// Same date + country + customer = the same source row, regardless of which
+// run produced it. Values are normalized (trimmed, lowercased) so formatting
+// differences (e.g. a date read as a string vs. a serial number) don't cause
+// false negatives.
+function dedupeKey(date: unknown, country: unknown, customer: unknown): string {
+  return [date, country, customer]
+    .map(v => String(v ?? "").trim().toLowerCase())
+    .join("|");
 }
