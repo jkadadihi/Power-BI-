@@ -1,0 +1,170 @@
+{
+  "id": "aaaaaaaa-1111-4111-9111-aaaaaaaaaaa1",
+  "brandColor": "#8C6CFF",
+  "connectorDisplayName": "Control",
+  "isTrigger": false,
+  "operationName": "AMKAD_Daily_CustSol_Import",
+  "operationDefinition": {
+    "type": "Scope",
+    "actions": {
+      "Initialize_varMonthFolder": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "varMonthFolder",
+              "type": "string",
+              "value": "@{concat('/Shared Documents/BS33384_AMKAD/Steering Board Presentations/2026/2026 Presentations/2026 AMKAD Summaries/Daily/', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM yyyy'))}"
+            }
+          ]
+        },
+        "runAfter": {}
+      },
+      "Initialize_varTargetFileName": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "varTargetFileName",
+              "type": "string",
+              "value": "@{concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsx')}"
+            }
+          ]
+        },
+        "runAfter": {
+          "Initialize_varMonthFolder": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Get_files_properties_only": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "operationId": "GetFileItems"
+          },
+          "parameters": {
+            "dataset": "https://dpdhl.sharepoint.com/teams/EXP-USQIA-BS33384_AMKAD",
+            "table": "Shared Documents",
+            "folderPath": "/Shared Documents/BS33384_AMKAD/Steering Board Presentations/2026/2026 Presentations/2026 AMKAD Summaries/Daily",
+            "viewScopeOption": "RecursiveAll",
+            "$top": 5000
+          }
+        },
+        "runAfter": {
+          "Initialize_varTargetFileName": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Filter_performance_reports": {
+        "type": "Query",
+        "inputs": {
+          "from": "@outputs('Get_files_properties_only')?['body/value']",
+          "where": "@contains(item()?['{FilenameWithExtension}'], 'Daily_Performance_Report')"
+        },
+        "runAfter": {
+          "Get_files_properties_only": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Compose_LatestFile": {
+        "type": "Compose",
+        "inputs": "@last(sort(body('Filter_performance_reports'), 'Modified'))",
+        "runAfter": {
+          "Filter_performance_reports": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Get_latest_file_content": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "operationId": "GetFileContent"
+          },
+          "parameters": {
+            "dataset": "https://dpdhl.sharepoint.com/teams/EXP-USQIA-BS33384_AMKAD",
+            "id": "@outputs('Compose_LatestFile')?['{Identifier}']",
+            "inferContentType": true
+          }
+        },
+        "runAfter": {
+          "Compose_LatestFile": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Create_month_folder": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "operationId": "CreateNewFolder"
+          },
+          "parameters": {
+            "dataset": "https://dpdhl.sharepoint.com/teams/EXP-USQIA-BS33384_AMKAD",
+            "table": "Shared Documents",
+            "parameters/path": "@variables('varMonthFolder')"
+          }
+        },
+        "runAfter": {
+          "Get_latest_file_content": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Create_todays_file": "Create_todays_file",
+      "Run_script_read_source": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_excelonlinebusiness",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+            "operationId": "RunScriptProd"
+          },
+          "parameters": {
+            "source": "sites",
+            "drive": "REPLACE_AFTER_IMPORT (pick site + Shared Documents in designer)",
+            "file": "@triggerOutputs()?['body/{Identifier}']",
+            "scriptId": "REPLACE_AFTER_IMPORT (pick 'custsol read daily' script in designer)"
+          }
+        },
+        "runAfter": {
+          "Create_todays_file": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Run_script_append_rawdata": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_excelonlinebusiness",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+            "operationId": "RunScriptProd"
+          },
+          "parameters": {
+            "source": "sites",
+            "drive": "REPLACE_AFTER_IMPORT (pick site + Shared Documents in designer)",
+            "file": "@outputs('Create_todays_file')?['body/Id']",
+            "scriptId": "REPLACE_AFTER_IMPORT (pick 'custsol append rawdata eur' script in designer)",
+            "ScriptParameters/sourceJson": "@body('Run_script_read_source')?['result']"
+          }
+        },
+        "runAfter": {
+          "Run_script_read_source": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "runAfter": {}
+  }
+}
