@@ -79,9 +79,12 @@ let
         in named,
 
     // Stack today's rows on top of the history the existing logic already found,
-    // then drop any exact repeat of Date+Country+Customer (safe if this refreshes
-    // more than once on the same day — last one in wins, nothing doubles up).
-    Combined = Table.Combine({RawDataTable, TodayRows}),
+    // then drop any exact repeat of Date+Country+Customer. TodayRows goes FIRST
+    // in Table.Combine because Table.Distinct keeps the first row it sees per
+    // key -- so if this refreshes twice in one day, the freshly re-read source
+    // data wins over whatever stale copy might already be sitting in history,
+    // never the other way around.
+    Combined = Table.Combine({TodayRows, RawDataTable}),
     Result   = Table.Distinct(Combined, {"Date", "Country", "Customer"})
 in
     Result
