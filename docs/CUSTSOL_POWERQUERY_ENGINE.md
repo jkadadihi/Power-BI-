@@ -1,52 +1,55 @@
-# Cust Sol — Power Query Engine (ALTERNATIVE — not the chosen approach)
+# Cust Sol — Power Query Engine (CHOSEN approach)
 
-> **Superseded.** The chosen approach is **clone-forward + append**
-> (`docs/CUSTSOL_DAILY_AUTOMATION.md`): the newest daily `.xlsm` already
-> contains the full running history in its `RawData` table (that's what the
-> downstream HTML query reads), so each day copies yesterday's file forward
-> and appends only today's rows. That matches the existing pipeline exactly
-> and doesn't depend on retaining every raw Cust_Sol source file.
->
-> This Power Query engine is kept only as a fallback for if the raw source
-> files are guaranteed to be retained forever and you'd rather rebuild the
-> whole history from them each day. If you use it, the output file must still
-> be saved as **`.xlsm`** with a table named **`RawData`** and the
-> `Daily_Performance_Report- <date>  AMKAD.xlsm` name, or the downstream query
-> won't see it.
-
-This is the Power Query version of the daily import. It reuses the pattern
-already proven in the HTML pipeline (PQ reading daily SharePoint files) and
-needs far less custom code — the whole transform is one M query.
+Chosen because it keeps Power Automate to a **single action**. Power Query
+does all the data work (mapping + full-history accumulation); Power Automate
+only makes the dated file, which is the one thing Power Query physically
+cannot do (it outputs into its own workbook, it can't create a separate file).
 
 **How the pieces fit:**
 
 ```
-Cust_Sol Daily File folder  (Gerard drops a file each day)
+Cust_Sol Daily File folder  (Gerard drops a raw source file each day)
         │
         ▼
-ENGINE workbook  (lives OUTSIDE the folder)
-  └─ Power Query "RawDataEUR" — combines the whole folder → full history
+ENGINE workbook  (lives OUTSIDE the folder, saved as .xlsm)
+  └─ Power Query "RawData" — combines the WHOLE folder → full history
         │  (refreshed daily by the existing open-on-schedule flow)
         ▼
-Power Automate  → copies the refreshed engine into the Daily folder
-                  as "Daily_Performance_Report- <date>  AMKAD.xlsx"
+Power Automate  → ONE copy of the refreshed engine into the Daily folder
+                  as "Daily_Performance_Report- <date>  AMKAD.xlsm"
+        │
+        ▼
+Downstream HTML query reads the newest Daily_Performance_Report .xlsm's
+"RawData" table — unchanged, this feeds it exactly what it expects.
 ```
 
 The engine holds the single source of truth (full history, rebuilt every
-refresh). The dated files in the Daily folder are disposable snapshots — if
-one is corrupted, the engine is untouched.
+refresh from the folder). The dated files are disposable snapshots.
+
+> **The cost of this approach, so it's a conscious choice:** history lives in
+> the raw Cust_Sol source files, so those must be **kept permanently** — if old
+> ones are deleted, that history disappears from the engine on the next
+> refresh. And each refresh re-reads every file in the folder, so it slows as
+> files accumulate (fine for ~a year; the long-term fix is the Power BI
+> dataflow / database route).
 
 ---
 
 ## 1. Build the engine query (one time)
 
 1. Open (or create) the **engine workbook** — a single workbook that lives
-   *outside* the Cust_Sol Daily File folder.
+   *outside* the Cust_Sol Daily File folder. **Save it as `.xlsm`**
+   (Excel Macro-Enabled Workbook) — the downstream query only looks for
+   `.xlsm` files.
 2. **Data → Get Data → Blank Query → Advanced Editor**.
 3. Paste the entire contents of `power_query/custsol_rawdata_eur.m`.
-4. Name the query **RawDataEUR**. Done → **Close & Load To… → Table** on a
-   sheet (this becomes your Raw Data EUR sheet).
-5. First run will prompt for credentials to the SharePoint site — sign in
+4. Name the query **RawData**. Done → **Close & Load To… → Table** on a sheet.
+5. **Critical:** click a cell in the loaded table → **Table Design** → set the
+   **Table Name** to exactly **`RawData`**. The downstream HTML query reads
+   `Excel.Workbook(...){[Item="RawData", Kind="Table"]}` — it finds the table
+   by that literal name, so if the ListObject is called `Table1` or anything
+   else, the pipeline won't see the data.
+6. First run will prompt for credentials to the SharePoint site — sign in
    with an org account that can read the folder (organizational, not
    anonymous).
 
@@ -81,19 +84,31 @@ later without folder access simply keeps those cached values.
 
 ## 3. Copy the refreshed engine to a dated file (Power Automate)
 
-A small flow, run after the daily refresh:
+This is the **only** Power Automate in the whole design. The essential work is
+one action — **Create file** (a renamed copy). The rest is just building the
+filename and making sure the month folder exists.
+
+**Trigger — chain it onto your existing refresh flow (recommended).** Add these
+actions to the *end* of the open-on-schedule flow that already refreshes the
+engine. That guarantees the copy happens *after* the refresh, with no second
+trigger and no timing guesswork. (Alternatively, a separate *Recurrence* trigger
+set a few minutes after the refresh works too — just less certain on timing.)
 
 | # | Action | Settings |
 |---|--------|----------|
-| 1 | **Trigger** — pick one: *Recurrence* (daily, a few min after your refresh flow) OR chain onto the end of the existing refresh flow | — |
-| 2 | Initialize variable `varTargetFile` (String) | `concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsx')` |
-| 3 | Initialize variable `varMonthFolder` (String) | `concat('/Shared Documents/BS33384_AMKAD/Steering Board Presentations/2026/2026 Presentations/2026 AMKAD Summaries/Daily/', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM yyyy'))` |
-| 4 | **Get file content** (SharePoint) | the engine workbook |
-| 5 | **Create new folder** (SharePoint) | Path: `varMonthFolder`. *Configure run after step 6 to allow this to fail* (folder exists most days). |
-| 6 | **Create file** (SharePoint) | Folder: `varMonthFolder`, Name: `varTargetFile`, Content: output of step 4. Run after step 5 on **Succeeded OR Failed**. |
+| 1 | Initialize variable `varTargetFile` (String) | `concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsm')` |
+| 2 | Initialize variable `varMonthFolder` (String) | `concat('/Shared Documents/BS33384_AMKAD/Steering Board Presentations/2026/2026 Presentations/2026 AMKAD Summaries/Daily/', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM yyyy'))` |
+| 3 | **Get file content** (SharePoint) | the engine `.xlsm` workbook |
+| 4 | **Create new folder** (SharePoint) | Path: `varMonthFolder`. *Configure the next step to run even if this fails* — the month folder already exists on every day except the 1st. |
+| 5 | **Create file** (SharePoint) | Folder: `varMonthFolder`, File Name: `varTargetFile`, File Content: output of step 3. Set **Configure run after** on step 5 to run on both **Succeeded** and **Failed** of step 4. |
+
+**Why "Get file content + Create file" instead of the "Copy file" action:**
+SharePoint's Copy file keeps the original's name — it can't rename the copy to
+today's date. Get-content + Create-file is what lets the copy be named
+`Daily_Performance_Report- <date>  AMKAD.xlsm`.
 
 That's the whole thing. No Office Scripts, no read/append, no duplicate guard —
-Power Query owns the data, Power Automate just snapshots the file.
+Power Query owns the data, Power Automate just snapshots the file once a day.
 
 ---
 
@@ -111,6 +126,12 @@ Power Query owns the data, Power Automate just snapshots the file.
 - **Year rollover:** `SiteUrl`/paths and the folder expressions contain `2026`
   — update the two variable expressions and the query's folder when 2027 folders
   are created.
-- **The Office Scripts** (`office_scripts/custsol_*`) and their flow artifacts
-  remain in the repo as a tested alternative, but this Power Query engine is the
-  chosen approach and does not use them.
+- **Frozen snapshots:** the dated copies contain the engine's live query, but
+  the downstream reads their *saved* values (Excel.Workbook reads stored data,
+  it doesn't re-run queries), so a copy always reflects the engine's state at
+  copy time. To be extra safe you can set the engine query to not refresh on
+  open in the copies, but it isn't required for the pipeline.
+- **The Office Scripts** (`office_scripts/custsol_*`), the clone-forward flow
+  artifacts, and `docs/CUSTSOL_DAILY_AUTOMATION.md` remain in the repo as a
+  tested alternative (more Power Automate, but history doesn't depend on
+  retaining source files). This Power Query engine is the chosen approach.

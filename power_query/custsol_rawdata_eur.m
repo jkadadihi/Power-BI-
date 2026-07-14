@@ -18,7 +18,9 @@
 // A:AD shape, add null placeholder columns for F:P after this query.
 //
 // SETUP: paste into a blank query (Data > Get Data > Blank Query > Advanced
-// Editor) in the engine workbook, then load it into the "RawData" table sheet.
+// Editor) in the engine workbook. Name the query "RawData", Close & Load to a
+// Table, then in Table Design set the Table Name to exactly "RawData" — the
+// downstream HTML query finds the data by that literal table name.
 let
     // ==== CONFIG — change only these two if the location moves ====
     SiteUrl      = "https://dpdhl.sharepoint.com/teams/EXP-USQIA-BS33384_AMKAD",

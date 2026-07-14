@@ -1,4 +1,12 @@
-# Cust Sol Daily Import — Build & Run Guide
+# Cust Sol Daily Import — Build & Run Guide (ALTERNATIVE approach)
+
+> **Not the chosen approach.** The chosen path is the Power Query engine
+> (`docs/CUSTSOL_POWERQUERY_ENGINE.md`), because it keeps Power Automate to a
+> single copy action. This clone-forward + append design is kept as a tested
+> alternative — it uses more Power Automate (two Office Scripts + a copy), but
+> its history lives in the chain of daily files, so it does **not** depend on
+> retaining every raw Cust_Sol source file forever. Use this one if source
+> files get cleared out periodically.
 
 Automates the daily manual process: take the customer solutions report that
 lands in the **Cust_Sol Daily File** folder, clone the most recent
