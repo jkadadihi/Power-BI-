@@ -27,7 +27,7 @@
             {
               "name": "varTargetFileName",
               "type": "string",
-              "value": "@{concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsx')}"
+              "value": "@{concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsm')}"
             }
           ]
         },

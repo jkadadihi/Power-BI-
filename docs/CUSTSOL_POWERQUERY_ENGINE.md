@@ -1,9 +1,22 @@
-# Cust Sol — Power Query Engine (chosen approach)
+# Cust Sol — Power Query Engine (ALTERNATIVE — not the chosen approach)
 
-This is the Power Query version of the daily import, chosen over the Office
-Script append. It reuses the pattern already proven in the HTML pipeline (PQ
-reading daily SharePoint files) and needs far less custom code — the whole
-transform is one M query.
+> **Superseded.** The chosen approach is **clone-forward + append**
+> (`docs/CUSTSOL_DAILY_AUTOMATION.md`): the newest daily `.xlsm` already
+> contains the full running history in its `RawData` table (that's what the
+> downstream HTML query reads), so each day copies yesterday's file forward
+> and appends only today's rows. That matches the existing pipeline exactly
+> and doesn't depend on retaining every raw Cust_Sol source file.
+>
+> This Power Query engine is kept only as a fallback for if the raw source
+> files are guaranteed to be retained forever and you'd rather rebuild the
+> whole history from them each day. If you use it, the output file must still
+> be saved as **`.xlsm`** with a table named **`RawData`** and the
+> `Daily_Performance_Report- <date>  AMKAD.xlsm` name, or the downstream query
+> won't see it.
+
+This is the Power Query version of the daily import. It reuses the pattern
+already proven in the HTML pipeline (PQ reading daily SharePoint files) and
+needs far less custom code — the whole transform is one M query.
 
 **How the pieces fit:**
 

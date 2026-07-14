@@ -87,7 +87,7 @@ concat('/Shared Documents/BS33384_AMKAD/Steering Board Presentations/2026/2026 P
 `varTargetFileName`:
 
 ```
-concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsx')
+concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsm')
 ```
 
 (`convertFromUtc` keeps the date correct for files that land late in the
@@ -128,7 +128,7 @@ in this doc):
 2. Check the run: every step green, and the last step's output shows
    `rowsAppended` equal to the number of data rows in the source file, with
    `skippedDuplicates: 0`.
-3. Open today's new `Daily_Performance_Report- … AMKAD.xlsx`: new rows at the
+3. Open today's new `Daily_Performance_Report- … AMKAD.xlsm`: new rows at the
    bottom of Raw Data EUR, columns F:P filled in by the table's own formulas.
 
 ---
