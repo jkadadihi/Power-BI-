@@ -1,188 +1,118 @@
-# Cust Sol Daily Import — Build & Run Guide (ALTERNATIVE approach)
+# Cust Sol Daily Import — the actual plan
 
-> **Not the chosen approach.** The chosen path is the Power Query engine
-> (`docs/CUSTSOL_POWERQUERY_ENGINE.md`), because it keeps Power Automate to a
-> single copy action. This clone-forward + append design is kept as a tested
-> alternative — it uses more Power Automate (two Office Scripts + a copy), but
-> its history lives in the chain of daily files, so it does **not** depend on
-> retaining every raw Cust_Sol source file forever. Use this one if source
-> files get cleared out periodically.
-
-Automates the daily manual process: take the customer solutions report that
-lands in the **Cust_Sol Daily File** folder, clone the most recent
-**Daily_Performance_Report** workbook into a new file dated today, and append
-the day's rows to its **Raw Data EUR** table. History carries forward across
-days and month folders. No alerts are sent by design.
-
-**Status: the calculation logic is already tested.** Both Office Scripts pass
-an offline test suite (33 checks) covering the full column mapping (A:E and
-Q:AD), the duplicated "Total Payments" header, blank-row skipping, the
-missing-Euro-data case, and the same-day re-run duplicate guard. Run it any
-time with `tests/test_custsol.sh`. What is *not* pre-testable from outside
-DHL's tenant is the Power Automate wiring — that's what this guide walks
-through.
+One sentence: **your existing AMKAD input file's query gets 8 extra steps
+that pull in today's new rows, and Power Automate saves a copy of that same
+file under today's date.** No Office Script. No second "engine" file. No
+new mechanism — this builds on the query you already have running.
 
 ---
 
-## 1. One-time setup: upload the two Office Scripts
+## Why this works (the one fact that matters)
 
-1. Open any workbook in **Excel Online** (scripts are stored per-account, not
-   per-file).
-2. **Automate** tab → **New Script**, paste in the contents of
-   `office_scripts/custsol_read_daily.ts`, rename the script
-   **custsol read daily**, save.
-3. Repeat with `office_scripts/custsol_append_rawdata_eur.ts`, named
-   **custsol append rawdata eur**.
+Power Query always **replaces** a table's contents on refresh — it can never
+add rows to what's already sitting there. So a query cannot "keep growing"
+a table in place.
 
-The writer expects the Raw Data EUR table to be named **`RawData`**
-(confirmed) and to have the exact headers listed at the bottom of this doc.
+But your **existing** query doesn't have that problem, because it doesn't
+grow anything in place either — it finds the newest `Daily_Performance_Report`
+file each time and **reads that file's `RawData` table fresh**. Since each
+daily file already contains full history (because it was itself built from
+the *previous* day's file the same way), reading "the newest file" gives you
+"all history so far" — every time, safely.
 
----
-
-## 2. Build the flow — three options, try in this order
-
-### Option A — Import the package (fastest if it works)
-
-1. Power Automate → **My flows** → **Import** → **Import Package (Legacy)**.
-2. Upload `docs/power_automate/custsol_flow_package.zip`.
-3. On the import screen, set the flow's *Import setup* to **Create as new**,
-   and select your existing SharePoint and Excel Online (Business)
-   connections for the two connector rows.
-4. Import, then open the flow and do the **post-import fix-ups** (section 3).
-
-If the import errors out (Microsoft's package format is picky), fall back to
-Option B — do not spend more than a few minutes fighting it.
-
-### Option B — Paste from clipboard (reliable fallback)
-
-1. Create a blank **Automated cloud flow** with trigger
-   **When a file is created (properties only)** (SharePoint).
-2. Configure the trigger:
-   - Site: `https://dpdhl.sharepoint.com/teams/EXP-USQIA-BS33384_AMKAD`
-   - Library: `Shared Documents`
-   - Folder: `.../2026 AMKAD Summaries/Daily/Cust_Sol Daily File`
-3. Copy the entire contents of
-   `docs/power_automate/custsol_flow_clipboard.json`.
-4. In the designer: **+ New step** → **My clipboard** tab → press
-   **Ctrl+V** → the pasted "AMKAD_Daily_CustSol_Import" scope appears →
-   select it.
-5. Do the **post-import fix-ups** (section 3).
-
-### Option C — Manual build (nothing else worked)
-
-Single linear chain, no branches:
-
-| # | Action | Key settings |
-|---|--------|--------------|
-| 1 | **Trigger:** When a file is created (properties only) | Folder: `Daily/Cust_Sol Daily File` |
-| 2 | Initialize variable `varMonthFolder` (String) | expression below |
-| 3 | Initialize variable `varTargetFileName` (String) | expression below |
-| 4 | Get files (properties only) | Folder: `.../Daily`, **Include Nested Items: Yes** |
-| 5 | Filter array | From: `value` of step 4; where **Name contains** `Daily_Performance_Report` |
-| 6 | Compose `LatestFile` | `last(sort(body('Filter_array'), 'Modified'))` |
-| 7 | Get file content | Id: `outputs('Compose')?['{Identifier}']` |
-| 8 | Create new folder | Path: `varMonthFolder` |
-| 9 | Create file | Folder: `varMonthFolder`, Name: `varTargetFileName`, Content: output of 7. **Configure run after: run on both Succeeded and Failed of step 8** (the month folder already exists most days). |
-| 10 | Run script — `custsol read daily` | File: **the trigger's** file Identifier (the source report) |
-| 11 | Run script — `custsol append rawdata eur` | File: `Id` from step 9's output (today's new file). Parameter `sourceJson`: the `result` output of step 10. |
-
-`varMonthFolder`:
+So all we're doing is extending that same idea by one more step: after your
+query finds full history-through-yesterday, also read today's new source
+file and stack those rows on top. The result is history-through-today. Save
+that as today's file, and tomorrow the cycle repeats automatically.
 
 ```
-concat('/Shared Documents/BS33384_AMKAD/Steering Board Presentations/2026/2026 Presentations/2026 AMKAD Summaries/Daily/', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM yyyy'))
+Your existing query:
+  find newest Daily_Performance_Report file → read its RawData table
+                                                = history through YESTERDAY
+
+              + (added) find newest Cust_Sol source file → map its columns
+                                                = TODAY's new rows
+
+  stack them, drop exact duplicates
+                                                = history through TODAY
+                                                       │
+                                                       ▼
+                                    Power Automate saves this file as
+                              "Daily_Performance_Report- <today>  AMKAD.xlsm"
 ```
 
-`varTargetFileName`:
+---
 
-```
-concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsm')
-```
+## 1. Update the query (5 minutes, in the file you already have)
 
-(`convertFromUtc` keeps the date correct for files that land late in the
-US evening, when UTC has already rolled to tomorrow.)
+1. Open your **current AMKAD input file** — the one whose query you pasted
+   earlier (the one that already finds the latest `Daily_Performance_Report`).
+2. **Data → Queries & Connections** → right-click the **RawData** query →
+   **Edit**.
+3. **Home → Advanced Editor**.
+4. Select all, delete, and paste in the full contents of
+   `power_query/custsol_rawdata.m`.
+   - The first ~40 lines are **word-for-word your existing query** — nothing
+     about how it finds the latest file changed.
+   - Everything after the `// ===== NEW =====` comment is the addition: find
+     today's Cust_Sol source file, map its 19 columns to match, stack on top,
+     drop any exact repeat.
+5. **Done**. Click **Close & Load**.
+6. Refresh once manually (**Data → Refresh All**) and check: the table now
+   has today's rows at the bottom in addition to everything it had before.
 
-**Why this shape:** listing `Daily/` with nested items and taking the newest
-`Daily_Performance_Report` by Modified date handles the month rollover
-automatically — on August 1 the newest file is simply July 31's, no
-"is this month's folder empty" branching needed. Get-content + Create-file
-replaces SharePoint's Copy file action because Copy file cannot rename the
-copy. Sorting is by **Modified**, never by filename — the
-"July 13 2026"-style names don't sort chronologically as text.
+That's the entire data-side change. Everything else about the file — its
+formulas, other sheets, other queries — is untouched.
 
 ---
 
-## 3. Post-import fix-ups (Options A and B)
+## 2. The one Power Automate step: save today's copy
 
-Connector dropdowns don't survive import as pickable values. Open each of
-these actions and re-select from the pickers (the values to pick are already
-in this doc):
+This is the **only** automation piece, and it's unavoidable — nothing inside
+Excel/Power Query can create a brand-new file under a new name; only
+something outside Excel can do that.
 
-1. **Trigger** (Option A only): site / library / the Cust_Sol Daily File folder.
-2. **Get files (properties only)**: site, library, the `Daily` folder, and
-   confirm **Include Nested Items = Yes**.
-3. **Get file content / Create new folder / Create file**: re-pick the site;
-   leave the expression-driven fields (folder, name, content) as imported.
-4. **Both Run script actions**: pick Location (the SharePoint site), Document
-   Library (`Shared Documents`), leave File as the imported expression, and
-   select the script by name — the imported `scriptId` is a placeholder and
-   **must** be replaced.
+**Add this to the end of your existing open-on-schedule flow** (the one that
+already opens this file daily so the query refreshes):
 
----
+| # | Action | Settings |
+|---|--------|----------|
+| 1 | Initialize variable `varTargetFile` (String) | `concat('Daily_Performance_Report- ', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM d yyyy'), '  AMKAD.xlsm')` |
+| 2 | Initialize variable `varMonthFolder` (String) | `concat('/Shared Documents/BS33384_AMKAD/Steering Board Presentations/2026/2026 Presentations/2026 AMKAD Summaries/Daily/', formatDateTime(convertFromUtc(utcNow(), 'Eastern Standard Time'), 'MMMM yyyy'))` |
+| 3 | **Get file content** (SharePoint) | your AMKAD input file (the one you just refreshed) |
+| 4 | **Create new folder** (SharePoint) | Path: `varMonthFolder` |
+| 5 | **Create file** (SharePoint) | Folder: `varMonthFolder`, Name: `varTargetFile`, Content: output of step 3. **Configure run after** step 5 to run whether step 4 succeeds or fails (the month folder already exists most days — only the 1st of the month needs it created). |
 
-## 4. First live run
+**Why "Get content + Create file" instead of "Copy file":** SharePoint's
+Copy file action can't rename the copy — Get content + Create file is what
+lets the new copy be named with today's date.
 
-1. Save the flow, then drop a copy of a real daily report into
-   `Cust_Sol Daily File` (or use **Test → Manually** with a recent trigger).
-2. Check the run: every step green, and the last step's output shows
-   `rowsAppended` equal to the number of data rows in the source file, with
-   `skippedDuplicates: 0`.
-3. Open today's new `Daily_Performance_Report- … AMKAD.xlsm`: new rows at the
-   bottom of Raw Data EUR, columns F:P filled in by the table's own formulas.
+That's it. Five actions, all mechanical, none of them touch the data logic —
+that's entirely Power Query's job now.
 
 ---
 
-## 5. Things to know / troubleshooting
+## 3. Things to know
 
-- **Re-running on the same day**: the `Create file` step fails if today's
-  output file already exists — delete today's file first, or point the last
-  Run script step at the existing file manually. Even if the append runs
-  twice, the script's duplicate guard skips rows already present
-  (`skippedDuplicates` will be non-zero instead of double-counting).
-- **Euro columns blank** (first 1–2 days after month close): the run does NOT
-  fail. Rows are appended with the Euro fields empty and the final step's
-  output shows `missingEuroRows` / `needsReview: true`. No alert is sent —
-  check the run history if you care that day.
-- **Source report never arrives**: the flow simply doesn't run and no file is
-  created that day. This is by design (no alerting was wanted). If that
-  changes, add a scheduled flow that checks the folder for today's file.
-- **Year rollover (Jan 2027)**: the trigger folder and the two path
-  expressions contain `2026` — update both the trigger's folder and the
-  `varMonthFolder` expression when the 2027 folder structure is created.
-- **"Table 'RawData' not found"**: someone renamed the table. Fix the name in
-  Excel (Table Design → Table Name) or update `RAW_DATA_EUR_TABLE_NAME` in
-  the writer script.
-- **"Expected column … not found"**: a header was renamed in either file.
-  The scripts match columns by header text on purpose (so column *reordering*
-  never breaks anything) — renames need a matching one-word fix in the script.
-- **Retesting after any script change**: run `tests/test_custsol.sh` — it
-  recompiles both scripts and re-runs all 33 checks in seconds.
+- **Re-running the same day:** `Table.Distinct` on Date+Country+Customer
+  means if the query or the flow runs twice in one day, nothing doubles up —
+  the second run's identical rows are dropped.
+- **Euro columns blank early in the month:** those rows load with blank Euro
+  fields; nothing fails. No alert is sent, per your call earlier.
+- **Source file missing that day:** `TodayRaw` resolves to `null`, `TodayRows`
+  becomes empty, and the query still succeeds — it just carries forward
+  yesterday's history with nothing new added, so no gap-day crash.
+- **Table name:** must stay literally **`RawData`** — that's what your
+  existing downstream logic (and this query) looks for.
+- **Year rollover (Jan 2027):** the folder path in step 2 above, and the
+  `"2026 AMKAD Summaries/Daily"` filter inside the query, both hardcode 2026
+  — update both when the 2027 folders exist.
 
 ---
 
-## 6. Expected headers (what the scripts match on)
+## Retired alternatives
 
-**Source report** (single sheet):
-`Report Date, countrycode, currencycode, Go Live Date, Customer Reporting
-Name, Payment Terms, Total Payments, Total UAC, TDSO, TTLAR, Overdue,
-GT60days, Gross Sales, GT90Days, GT60Days Euro, Gross Sales Euro, Company
-Code, Total AREuro, Overdue AREuro, GT90Days Euro, Total UAC Euro, Total
-Payments` — note "Total Payments" appears twice; the first is the native
-amount, the last is the Euro amount, and the scripts handle that explicitly.
-
-**Raw Data EUR table (`RawData`)** — columns written by the script:
-`Date, Country, Customer, Go Live, Payment Term (days)` (A:E) and
-`Total AR € (Live), Gross Sales € (Live), Overdue € (Live), > 60 days €
-(Live), > 90 days € (Live), Total AR, Overdue, > 60 days, Gross Sales,
-> 90 days, Total UAC € (Live), Total UAC, Total Payments € (Live), Total
-Payments` (Q:AD). Columns F:P are never written — the table auto-fills its
-own formulas there.
+Two earlier designs are archived in `docs/archive/` — a separate "engine
+workbook" (Power Query) version and an Office Script append version. Both
+were superseded by this one because it needed neither: no new file, no
+custom script, just an extension of the query you already had.
