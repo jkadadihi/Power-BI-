@@ -34,7 +34,7 @@ function main(workbook: ExcelScript.Workbook, sourceJson: string): string {
   }
 
   const destIdx = {
-    date: colIndex("Date"),
+    date: colIndex("Month"),
     country: colIndex("Country"),
     customer: colIndex("Customer"),
     goLive: colIndex("Go Live"),
