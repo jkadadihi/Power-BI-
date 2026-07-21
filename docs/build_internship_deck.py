@@ -520,6 +520,22 @@ footer(s)
 
 
 # =====================================================================
+# THE BIGGER CHALLENGE  (reflective challenges, new)
+# =====================================================================
+s = add_slide()
+slide_title(s, "The Bigger Challenge Wasn't the Code",
+            "The hardest parts were the ones around the building")
+bullets(s, [
+    "Learning the business first: AR, aging, UAC, DSO, SOAs, START, and the AMKAD workflows, before automating any of it.",
+    "Understanding why collectors did each step, what the exceptions were, and what could break if I got it wrong.",
+    "Making imperfect, fragmented data reliable: different files, SAP exports, missing values, and inconsistent naming.",
+    "Building systems people actually depend on, where accuracy and uptime matter, not demo projects.",
+    "Piecing together processes that were never fully documented, by meeting people, asking questions, and testing.",
+], top=Inches(2.45), size=15, gap=12)
+footer(s)
+
+
+# =====================================================================
 # WHAT I LEARNED  (reflection, new)
 # =====================================================================
 s = add_slide()
@@ -531,6 +547,24 @@ bullets(s, [
     "Why it is worth designing scalable, reusable solutions instead of one-off fixes.",
     "How to stay calm and methodical when something breaks, and recover from it properly.",
 ], top=Inches(2.5), size=15.5, gap=13)
+footer(s)
+
+
+# =====================================================================
+# WHAT I'D DO DIFFERENTLY  (self-reflection, new)
+# =====================================================================
+s = add_slide()
+slide_title(s, "What I'd Do Differently", "Where I want to grow from here")
+bullets(s, [
+    "Spend more time on design up front. Map the process and sketch the architecture before building, so there is less rebuilding later when a new requirement appears.",
+    "Document while I build, not at the end. As the automations grew more complex, earlier notes would have made them easier to hand off and maintain.",
+    "Validate the workflow with users earlier and more often. Not just \"can I make this work,\" but \"is this the workflow people actually want.\"",
+], top=Inches(2.5), size=15.5, gap=15)
+box = rrect(s, Inches(0.7), Inches(5.75), Inches(11.9), Inches(0.9), RGBColor(0xFC, 0xEF, 0xEF),
+            line=True, radius=0.10)
+tb, tf = textbox(s, Inches(1.0), Inches(5.85), Inches(11.3), Inches(0.7), valign=MSO_ANCHOR.MIDDLE)
+para(tf, "In short, I want to grow from building automations toward designing them: more thought up front, "
+         "better documentation, and scalability from the start.", size=13.5, color=RED_DARK, bold=True, first=True)
 footer(s)
 
 
