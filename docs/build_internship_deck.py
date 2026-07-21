@@ -1,38 +1,32 @@
 #!/usr/bin/env python3
 """
-AMKAD Internship Close-Out — comprehensive deck.
+AMKAD Internship Close-Out deck.
 
-Focus: the AR reporting HTML automation and the daily data pipeline that now
-feeds it, plus the SOA automation, the Power BI / database groundwork, and the
-real engineering challenges overcome. Leads with a transparent, conservative
-hours-saved model so the impact is defensible in front of a CFO.
-
-Numbers are built from the intern's own figures:
-  - Daily Cust_Sol file:  15 min/day x 5 days -> 1.25 hr/wk -> ~63 hr/yr
-  - SOA automation:       6 weekly SOAs (Arrow x5 countries, Baker x1),
-                          30-60 min each -> 3-6 hr/wk -> ~150-300 hr/yr
-  - Combined:             ~4-7 hr/wk -> ~18-31 hr/mo -> ~210-360 hr/yr
-                          (~5-9 full 40-hour work-weeks per year)
-Conservative anchor used as the headline: ~210 hr/yr.
+Warm, humble, professional tone. No em dashes in slide text. Leads with a
+transparent, conservative hours-saved model (~275-445 hrs/yr) built from the
+intern's own figures, and tells the growth story from learning DHL's systems
+in week 1 to shipping production automations by week 9.
 """
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.oxml.ns import qn
 
 # ---------- palette ----------
 RED = RGBColor(0xD4, 0x05, 0x11)
 RED_DARK = RGBColor(0xA5, 0x04, 0x0D)
 YELLOW = RGBColor(0xFF, 0xCC, 0x00)
 INK = RGBColor(0x1A, 0x1D, 0x21)
+INKCARD = RGBColor(0x23, 0x27, 0x2C)
 SOFT = RGBColor(0x5B, 0x64, 0x70)
 MUTED = RGBColor(0x8A, 0x83, 0x7B)
 BG = RGBColor(0xF7, 0xF6, 0xF3)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 LINE = RGBColor(0xE2, 0xE0, 0xDA)
 GOOD = RGBColor(0x0F, 0x8A, 0x2E)
-INKCARD = RGBColor(0x23, 0x27, 0x2C)
+GOODBG = RGBColor(0xEC, 0xF6, 0xEE)
 FONT = "Calibri"
 
 prs = Presentation()
@@ -40,9 +34,11 @@ prs.slide_width = Inches(13.333)
 prs.slide_height = Inches(7.5)
 BLANK = prs.slide_layouts[6]
 SW, SH = prs.slide_width, prs.slide_height
+PAGE = [0]
 
 
 def add_slide(bg=BG):
+    PAGE[0] += 1
     s = prs.slides.add_slide(BLANK)
     r = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, SW, SH)
     r.fill.solid(); r.fill.fore_color.rgb = bg
@@ -76,6 +72,13 @@ def rrect(s, l, t, w, h, color, line=False, radius=0.06):
         r.line.fill.background()
     r.shadow.inherit = False
     return r
+
+
+def arrowshape(s, l, t, w, h, color):
+    a = s.shapes.add_shape(MSO_SHAPE.RIGHT_ARROW, l, t, w, h)
+    a.fill.solid(); a.fill.fore_color.rgb = color
+    a.line.fill.background(); a.shadow.inherit = False
+    return a
 
 
 def textbox(s, l, t, w, h, valign=MSO_ANCHOR.TOP):
@@ -116,19 +119,18 @@ def slide_title(s, kicker, title, subtitle=None):
     rect(s, Inches(0.7), Inches(2.12), Inches(11.9), Pt(1.4), LINE)
 
 
-def footer(s, n):
+def footer(s):
     tb, tf = textbox(s, Inches(0.7), Inches(7.15), Inches(9), Inches(0.3))
     para(tf, "AMKAD  ·  AR Reporting & Collections Automation  ·  Internship Close-Out",
          size=9, color=MUTED, first=True)
     tb2, tf2 = textbox(s, Inches(12.3), Inches(7.15), Inches(0.7), Inches(0.3))
-    para(tf2, str(n), size=9, color=MUTED, first=True, align=PP_ALIGN.RIGHT)
+    para(tf2, str(PAGE[0]), size=9, color=MUTED, first=True, align=PP_ALIGN.RIGHT)
 
 
 def logo_placeholder(s, l, t, w=Inches(1.9), h=Inches(0.75)):
     box = rrect(s, l, t, w, h, WHITE, line=True, radius=0.08)
     box.line.color.rgb = MUTED
     ln = box.line._get_or_add_ln()
-    from pptx.oxml.ns import qn
     d = ln.makeelement(qn('a:prstDash'), {'val': 'dash'}); ln.append(d)
     tb, tf = textbox(s, l, t, w, h, valign=MSO_ANCHOR.MIDDLE)
     para(tf, "paste DHL logo", size=9, color=MUTED, italic=True, first=True, align=PP_ALIGN.CENTER)
@@ -163,7 +165,7 @@ def card(s, l, t, w, h, title, lines, accent=RED, title_size=14, body_size=11.5)
 
 
 # =====================================================================
-# 1 — TITLE
+# TITLE
 # =====================================================================
 s = add_slide(INK)
 rect(s, 0, 0, SW, Inches(0.18), RED)
@@ -184,21 +186,19 @@ para(tf, "Finance Intern, Controlling  ·  Internship Close-Out Presentation", s
 
 
 # =====================================================================
-# 2 — IMPACT HEADLINE (hook)
+# IMPACT HEADLINE
 # =====================================================================
 s = add_slide()
 eyebrow(s, "The Impact")
 tb, tf = textbox(s, Inches(0.7), Inches(0.9), Inches(11.9), Inches(1.0))
 para(tf, "What the work added up to", size=29, color=INK, bold=True, first=True)
 rect(s, Inches(0.7), Inches(1.75), Inches(11.9), Pt(1.4), LINE)
-
 stat_tile(s, Inches(0.7), Inches(2.15), Inches(3.75), Inches(1.7),
           "~275 hrs", "of team time given back each year, and likely more. A conservative estimate.", vsize=32)
 stat_tile(s, Inches(4.79), Inches(2.15), Inches(3.75), Inches(1.7),
           "6 / week", "statements now generated and emailed automatically (Arrow ×5, Baker ×1)", vsize=32)
 stat_tile(s, Inches(8.88), Inches(2.15), Inches(3.72), Inches(1.7),
           "1 new", "shared AR reporting view the team did not have in one place before", vsize=32)
-
 tb, tf = textbox(s, Inches(0.7), Inches(4.2), Inches(11.9), Inches(1.0))
 para(tf, "That is roughly 7 to 11 full work-weeks a year that collectors can spend on collections instead of manual reporting.",
      size=17, color=RED_DARK, bold=True, first=True)
@@ -207,45 +207,76 @@ bullets(s, [
     "Took the daily data file off someone's plate so it no longer has to be rebuilt by hand.",
     "Reduced the reliance on one person, and the small errors that manual copy and paste can introduce.",
 ], top=Inches(4.85), size=14, gap=8)
-footer(s, 2)
+footer(s)
 
 
 # =====================================================================
-# 3 — AGENDA
+# AGENDA
 # =====================================================================
 s = add_slide()
 slide_title(s, "Agenda", "What I'll walk through")
 items = [
+    ("My internship journey", "From learning the systems to shipping automations"),
     ("Where things stood", "The manual starting point"),
     ("What I worked on", "Three connected automations"),
     ("The impact", "Time saved, with the math shown"),
-    ("The hard parts", "Power BI, data, and the challenges along the way"),
+    ("The hard parts and what I learned", "The challenges along the way, and the growth"),
     ("What's next", "How this can grow from here"),
 ]
 x = Inches(0.7)
 for i, (h, d) in enumerate(items):
-    t = Inches(2.5) + i * Inches(0.92)
-    badge = s.shapes.add_shape(MSO_SHAPE.OVAL, x, t, Inches(0.55), Inches(0.55))
+    t = Inches(2.42) + i * Inches(0.75)
+    badge = s.shapes.add_shape(MSO_SHAPE.OVAL, x, t, Inches(0.5), Inches(0.5))
     badge.fill.solid(); badge.fill.fore_color.rgb = RED; badge.line.fill.background()
     badge.shadow.inherit = False
     bp = badge.text_frame.paragraphs[0]; bp.alignment = PP_ALIGN.CENTER
-    br = bp.add_run(); br.text = str(i + 1); br.font.size = Pt(18); br.font.bold = True
+    br = bp.add_run(); br.text = str(i + 1); br.font.size = Pt(16); br.font.bold = True
     br.font.color.rgb = WHITE; br.font.name = FONT
-    tb, tf = textbox(s, x + Inches(0.8), t, Inches(10.5), Inches(0.6), valign=MSO_ANCHOR.MIDDLE)
-    para(tf, h, size=17, color=INK, bold=True, first=True, space_after=1)
-    para(tf, d, size=12.5, color=SOFT)
-footer(s, 3)
+    tb, tf = textbox(s, x + Inches(0.75), t, Inches(10.5), Inches(0.55), valign=MSO_ANCHOR.MIDDLE)
+    para(tf, h, size=16, color=INK, bold=True, first=True, space_after=1)
+    para(tf, d, size=12, color=SOFT)
+footer(s)
 
 
 # =====================================================================
-# 4 — SITUATION
+# MY INTERNSHIP JOURNEY  (new)
+# =====================================================================
+s = add_slide()
+slide_title(s, "My Internship Journey",
+            "From learning DHL's systems in week one to shipping automations that run on their own")
+stages = [
+    ("Weeks 1–2", "Learned AR, collections, START, and AMKAD processes; reviewed the existing Power BI reporting; picked up SAP extracts and the reporting workflow."),
+    ("Weeks 3–4", "Built the first AR dashboard prototype and began data modeling and reporting enhancements."),
+    ("Weeks 5–6", "Developed the automated daily data pipeline, connecting Power Query, Office Scripts, Power Automate, and SharePoint."),
+    ("Weeks 7–8", "Reverse-engineered the START SOA process and designed a reusable SOA automation framework."),
+    ("Week 9", "Deployed 5 Arrow SOAs and 1 Baker Hughes SOA, and completed documentation and handoff."),
+]
+top = Inches(2.45)
+rh = Inches(0.9)
+rail_x = Inches(2.15)
+rect(s, rail_x, top + Inches(0.1), Pt(2.2), rh * (len(stages) - 1) + Inches(0.3), LINE)
+for i, (wk, txt) in enumerate(stages):
+    ry = top + i * rh
+    dot = s.shapes.add_shape(MSO_SHAPE.OVAL, rail_x - Inches(0.09), ry + Inches(0.14),
+                             Inches(0.26), Inches(0.26))
+    dot.fill.solid(); dot.fill.fore_color.rgb = RED; dot.line.color.rgb = WHITE
+    dot.line.width = Pt(2); dot.shadow.inherit = False
+    tb, tf = textbox(s, Inches(0.7), ry, Inches(1.3), Inches(0.6))
+    para(tf, wk, size=14, color=RED_DARK, bold=True, first=True)
+    tb, tf = textbox(s, Inches(2.55), ry, Inches(10.0), Inches(0.8), valign=MSO_ANCHOR.TOP)
+    para(tf, txt, size=13.5, color=INK, first=True)
+footer(s)
+
+
+# =====================================================================
+# WHERE THINGS STOOD
 # =====================================================================
 s = add_slide()
 slide_title(s, "Where Things Stood", "Three manual processes, three sources of risk")
 card(s, Inches(0.7), Inches(2.45), Inches(3.85), Inches(3.9), "AR Reporting",
      ["No consolidated daily view of receivables",
       "Aging, overdue, UAC lived across spreadsheets",
-      "No trend, drill-down, or 'what-if' capability",
+      "No trend, drill-down, or what-if capability",
       "Leadership lacked a single place to look"], accent=RED)
 card(s, Inches(4.74), Inches(2.45), Inches(3.85), Inches(3.9), "Daily Data File",
      ["A collector rebuilt it every business day",
@@ -254,14 +285,14 @@ card(s, Inches(4.74), Inches(2.45), Inches(3.85), Inches(3.9), "Daily Data File"
       "Manual copy and paste can introduce small errors"], accent=RED)
 card(s, Inches(8.78), Inches(2.45), Inches(3.82), Inches(3.9), "Statements (SOA)",
      ["Collectors generated SOAs in START by hand",
-      "Then formatted, emailed, attached, CC'd",
-      "Repeated weekly, per customer & country",
-      "Missed sends & delays pulled focus off collections"], accent=RED)
-footer(s, 4)
+      "Then formatted, emailed, attached, and CC'd",
+      "Repeated weekly, per customer and country",
+      "Missed sends and delays pulled focus off collections"], accent=RED)
+footer(s)
 
 
 # =====================================================================
-# 5 — WHAT I BUILT (overview)
+# WHAT I WORKED ON
 # =====================================================================
 s = add_slide()
 slide_title(s, "What I Worked On", "Three connected automations across the AR workflow")
@@ -280,15 +311,55 @@ card(s, Inches(8.78), Inches(2.45), Inches(3.82), Inches(3.9), "3 · SOA Automat
       "Emailed with attachments and stakeholders CC'd",
       "A configurable framework, not one-offs",
       "Collectors step in only for exceptions"], accent=INK)
-footer(s, 5)
+footer(s)
 
 
 # =====================================================================
-# 6 — PILLAR 1: DASHBOARD
+# HOW IT FITS TOGETHER  (architecture, new)
+# =====================================================================
+s = add_slide()
+slide_title(s, "How It Fits Together",
+            "The path from the source systems to the dashboard and the automated statements")
+arch = [
+    ("SAP / START", "source data"),
+    ("SharePoint", "files land here"),
+    ("Power Query", "shapes the data"),
+    ("Office Script", "reads & writes"),
+    ("Power Automate", "runs it daily"),
+    ("Dashboard & SOA emails", "what people see"),
+]
+box_w = Inches(1.72)
+gap = Inches(0.28)
+y = Inches(3.15)
+h = Inches(1.35)
+x0 = Inches(0.72)
+for i, (name, cap) in enumerate(arch):
+    bx = x0 + i * (box_w + gap)
+    last = (i == len(arch) - 1)
+    b = rrect(s, bx, y, box_w, h, RED if last else WHITE, line=True, radius=0.10)
+    tb, tf = textbox(s, bx + Inches(0.08), y + Inches(0.12), box_w - Inches(0.16), h - Inches(0.24),
+                     valign=MSO_ANCHOR.MIDDLE)
+    para(tf, name, size=12.5, color=WHITE if last else INK, bold=True, first=True,
+         align=PP_ALIGN.CENTER, space_after=3)
+    para(tf, cap, size=10, color=RGBColor(0xF3, 0xD6, 0xD6) if last else SOFT,
+         align=PP_ALIGN.CENTER)
+    if not last:
+        arrowshape(s, bx + box_w + Inches(0.02), y + h / 2 - Inches(0.11),
+                   gap - Inches(0.04), Inches(0.22), RGBColor(0xC7, 0xC2, 0xBA))
+box = rrect(s, Inches(0.72), Inches(5.2), Inches(11.9), Inches(0.9), GOODBG, line=True, radius=0.10)
+tb, tf = textbox(s, Inches(1.0), Inches(5.3), Inches(11.3), Inches(0.7), valign=MSO_ANCHOR.MIDDLE)
+para(tf, "In plain terms: the data flows in on its own, gets shaped and checked automatically, "
+         "and comes out as a live dashboard and ready-to-send statements. No one has to run it by hand.",
+     size=13, color=RGBColor(0x1F, 0x5C, 0x2E), bold=True, first=True)
+footer(s)
+
+
+# =====================================================================
+# PILLAR 1: DASHBOARD
 # =====================================================================
 s = add_slide()
 slide_title(s, "Pillar 1 · The AR Dashboard",
-            "A live view of the receivables book that we did not have before")
+            "Aging, UAC, payments, gross sales, trends, and forecasts brought into a single view")
 bullets(s, [
     "Portfolio KPIs: Total AR, Overdue %, GT60 and GT90 aging, UAC, gross sales, payments.",
     "Drill-downs both ways, from country to customer, to see what is driving each number.",
@@ -302,15 +373,15 @@ tb, tf = textbox(s, Inches(1.0), Inches(6.05), Inches(11.3), Inches(0.65), valig
 para(tf, "It replaced the report tab that used to be updated by hand each day, and brought AR "
          "visibility together in one place that the team did not have before.",
          size=13.5, color=RED_DARK, bold=True, first=True)
-footer(s, 6)
+footer(s)
 
 
 # =====================================================================
-# 7 — PILLAR 2: PIPELINE
+# PILLAR 2: PIPELINE
 # =====================================================================
 s = add_slide()
 slide_title(s, "Pillar 2 · The Daily Data Pipeline",
-            "The manual daily file, now self-running")
+            "The manual daily file, now running on its own")
 tb, tf = textbox(s, Inches(0.7), Inches(2.4), Inches(5.7), Inches(0.4))
 para(tf, "Before:  around 30 to 35 min a day, by hand", size=13, color=RED, bold=True, first=True)
 bullets(s, [
@@ -319,7 +390,6 @@ bullets(s, [
     "Copy specific columns into the workbook",
     "Update the report tab, then save a new file",
 ], top=Inches(2.85), left=Inches(0.7), width=Inches(5.6), size=13, gap=7, color=SOFT)
-
 tb, tf = textbox(s, Inches(6.85), Inches(2.4), Inches(5.7), Inches(0.4))
 para(tf, "After:  it runs on its own", size=13, color=GOOD, bold=True, first=True)
 bullets(s, [
@@ -328,22 +398,21 @@ bullets(s, [
     "A new dated file is built, carrying full history",
     "Today's rows are added and the dashboard updates",
 ], top=Inches(2.85), left=Inches(6.85), width=Inches(5.6), size=13, gap=7, color=SOFT)
-
 box = rrect(s, Inches(0.7), Inches(5.55), Inches(11.9), Inches(1.25), INKCARD, radius=0.08)
 tb, tf = textbox(s, Inches(1.0), Inches(5.72), Inches(11.3), Inches(0.95), valign=MSO_ANCHOR.MIDDLE)
 para(tf, "Built with  Power Query (M),  Office Scripts (TypeScript),  Power Automate,  and SharePoint",
      size=13.5, color=YELLOW, bold=True, first=True, space_after=5)
 para(tf, "It also protects against duplicates and handles missing or incomplete data gracefully, such as month-start EUR gaps.",
      size=12.5, color=RGBColor(0xCF, 0xD4, 0xDA))
-footer(s, 7)
+footer(s)
 
 
 # =====================================================================
-# 8 — PILLAR 3: SOA
+# PILLAR 3: SOA
 # =====================================================================
 s = add_slide()
 slide_title(s, "Pillar 3 · SOA Automation",
-            "Recurring statements generated & delivered without a collector touching them")
+            "Recurring statements generated and delivered without a collector touching them")
 bullets(s, [
     "Automated 6 recurring weekly Statements of Account: Arrow Electronics across 5 countries, and Baker Hughes.",
     "Generated from START templates with the right account filters, then emailed automatically with attachments and internal stakeholders CC'd.",
@@ -356,14 +425,21 @@ tb, tf = textbox(s, Inches(1.0), Inches(6.05), Inches(11.3), Inches(0.65), valig
 para(tf, "To be clear on scope: two customers are live today, six SOAs a week, on a framework built so more "
          "can be added over time. The reusable engine is the part that is done.",
          size=13, color=RED_DARK, bold=True, first=True)
-footer(s, 8)
+footer(s)
 
 
 # =====================================================================
-# 9 — THE NUMBERS (money slide)
+# THE IMPACT (table + current state)
 # =====================================================================
 s = add_slide()
 slide_title(s, "The Impact", "Time saved, with the math shown, kept deliberately conservative")
+
+# current-state strip
+cs = rrect(s, Inches(0.7), Inches(2.28), Inches(11.9), Inches(0.5), GOODBG, line=True, radius=0.16)
+tb, tf = textbox(s, Inches(1.0), Inches(2.28), Inches(11.3), Inches(0.5), valign=MSO_ANCHOR.MIDDLE)
+para(tf, "Live today:   ✓ Dashboard in production    ✓ Daily pipeline running    "
+         "✓ 6 weekly SOAs automated    ✓ Framework ready for more customers",
+     size=12.5, color=RGBColor(0x1F, 0x5C, 0x2E), bold=True, first=True)
 
 rows = [
     ("", "Per week", "Per month", "Per year", False),
@@ -375,8 +451,8 @@ rows = [
 tw = Inches(11.9)
 c0, c1, c2, c3 = Inches(5.0), Inches(2.3), Inches(2.3), Inches(2.3)
 x0 = Inches(0.7)
-y = Inches(2.4)
-rh = Inches(0.6)
+y = Inches(2.95)
+rh = Inches(0.55)
 for i, (label, a, b, c, total) in enumerate(rows):
     ry = y + i * rh
     if i == 0:
@@ -399,56 +475,70 @@ for i, (label, a, b, c, total) in enumerate(rows):
         for j, (cw, txt, al) in enumerate(cells):
             tb, tf = textbox(s, cx + Inches(0.15), ry, cw - Inches(0.3), rh, valign=MSO_ANCHOR.MIDDLE)
             para(tf, txt, size=13.5 if total else 13,
-                 color=RED_DARK if total else INK,
-                 bold=(total or j == 0), first=True, align=al)
+                 color=RED_DARK if total else INK, bold=(total or j == 0), first=True, align=al)
             cx += cw
 
-tb, tf = textbox(s, Inches(0.7), Inches(5.6), Inches(11.9), Inches(1.3))
+tb, tf = textbox(s, Inches(0.7), Inches(5.95), Inches(11.9), Inches(1.2))
 para(tf, "That comes to roughly 7 to 11 full work-weeks of time given back to the team each year.",
-     size=16, color=RED_DARK, bold=True, first=True, space_after=8)
+     size=15.5, color=RED_DARK, bold=True, first=True, space_after=7)
 para(tf, "The assumptions are kept conservative on purpose: 5 business days a week, SOAs at 30 to 60 minutes each, "
          "6 a week. The figures leave out error-correction, rework, and analysis time, so the real number is likely higher.",
-     size=11.5, color=MUTED, italic=True)
-footer(s, 9)
+     size=11, color=MUTED, italic=True)
+footer(s)
 
 
 # =====================================================================
-# 10 — THE HARD PARTS (credibility)
+# THE HARD PARTS
 # =====================================================================
 s = add_slide()
 slide_title(s, "The Hard Parts", "What it took along the way, and what I learned")
 card(s, Inches(0.7), Inches(2.4), Inches(3.85), Inches(2.05), "Power BI & the data",
-     ["Extensive trial-and-error building the model",
+     ["A lot of trial and error on the model",
       "Fragmented, inconsistent source data",
-      "Had to consolidate before anything was trustworthy"], accent=RED, title_size=13.5)
+      "Had to consolidate before trusting anything"], accent=RED, title_size=13.5)
 card(s, Inches(4.74), Inches(2.4), Inches(3.85), Inches(2.05), "Hosting blocked",
-     ["Azure Functions blocked by permissions (RBAC)",
-      "Re-architected the whole recurring-run approach",
-      "Landed on GitHub Actions, which worked cleanly and at no cost"], accent=RED, title_size=13.5)
+     ["Azure Functions blocked by permissions",
+      "Rethought the recurring-run approach",
+      "Landed on GitHub Actions, clean and no cost"], accent=RED, title_size=13.5)
 card(s, Inches(8.78), Inches(2.4), Inches(3.82), Inches(2.05), "The right data pattern",
-     ["Power Query replaces, it can't append",
+     ["Power Query replaces, it cannot append",
       "Designed a carry-history-forward pipeline",
       "Solved it without breaking the live report"], accent=RED, title_size=13.5)
 card(s, Inches(0.7), Inches(4.6), Inches(3.85), Inches(2.05), "A production incident",
      ["A live query edit went wrong",
       "Recovered cleanly via version history",
-      "Adopted a test-first, never-in-prod discipline"], accent=INK, title_size=13.5)
+      "Adopted a test-first, never-in-prod habit"], accent=INK, title_size=13.5)
 card(s, Inches(4.74), Inches(4.6), Inches(3.85), Inches(2.05), "Connector quirks",
-     ["Dozens of field-name / identifier mismatches",
+     ["Many field-name and identifier mismatches",
       "Pagination, throttling, locked-file retries",
-      "Debugged each to a clean, green run"], accent=INK, title_size=13.5)
+      "Worked each one through to a clean run"], accent=INK, title_size=13.5)
 card(s, Inches(8.78), Inches(4.6), Inches(3.82), Inches(2.05), "The takeaway",
-     ["Shipped despite every obstacle",
+     ["Kept going through the obstacles",
       "Learned to de-risk before touching live data",
       "Left it documented and maintainable"], accent=INK, title_size=13.5)
-footer(s, 10)
+footer(s)
 
 
 # =====================================================================
-# 11 — SKILLS
+# WHAT I LEARNED  (reflection, new)
 # =====================================================================
 s = add_slide()
-slide_title(s, "What It Took", "Skills demonstrated, end to end")
+slide_title(s, "What I Learned", "The parts that will stay with me")
+bullets(s, [
+    "How accounts receivable connects to the wider health and performance of the business.",
+    "How to take a business problem and turn it into a practical automation opportunity.",
+    "How to work with people across finance, collections, and IT to get something built.",
+    "Why it is worth designing scalable, reusable solutions instead of one-off fixes.",
+    "How to stay calm and methodical when something breaks, and recover from it properly.",
+], top=Inches(2.5), size=15.5, gap=13)
+footer(s)
+
+
+# =====================================================================
+# SKILLS
+# =====================================================================
+s = add_slide()
+slide_title(s, "What It Took", "Skills I got to build and use")
 groups = [
     ("Automation & Data", ["Power Query (M)", "Office Scripts (TypeScript)",
                             "Power Automate", "SharePoint / GitHub Actions"]),
@@ -456,8 +546,8 @@ groups = [
                              "Power BI", "MTD / snapshot filtering"]),
     ("Product & Front-End", ["HTML / CSS / JavaScript", "SVG charting & dashboards",
                              "UX for non-technical users", "Clear documentation"]),
-    ("Ways of Working", ["Reverse-engineering undocumented processes", "Building from ambiguity",
-                         "Production troubleshooting", "Shipping, not just proposing"]),
+    ("Ways of Working", ["Reverse-engineering undocumented processes", "Working from ambiguity",
+                         "Production troubleshooting", "Following things through to done"]),
 ]
 for i, (title, items) in enumerate(groups):
     col = i % 2
@@ -470,25 +560,40 @@ for i, (title, items) in enumerate(groups):
     para(tf, title, size=14, color=RED_DARK, bold=True, first=True, space_after=7)
     for it in items:
         para(tf, it, size=12.5, color=INK, bullet=True, space_after=4)
-footer(s, 11)
+footer(s)
 
 
 # =====================================================================
-# 12 — WHAT'S NEXT
+# WHAT I'M MOST PROUD OF  (new)
 # =====================================================================
 s = add_slide()
-slide_title(s, "What's Next", "How this scales beyond me")
+slide_title(s, "What I'm Most Proud Of", "A few things that meant the most to me")
+bullets(s, [
+    "Building three automation solutions that are genuinely in use, not just prototypes.",
+    "Taking real, repetitive reporting effort off the team's plate each day.",
+    "Creating reusable frameworks that can grow, rather than one-time fixes.",
+    "Leaving behind solutions that keep running after the internship ends.",
+    "Giving the team clearer visibility into AR performance and collections activity.",
+], top=Inches(2.5), size=15.5, gap=13)
+footer(s)
+
+
+# =====================================================================
+# WHAT'S NEXT
+# =====================================================================
+s = add_slide()
+slide_title(s, "What's Next", "How this can grow from here")
 bullets(s, [
     "Extend the SOA framework to more customers and countries, since the reusable engine is already in place.",
     "Move the data layer toward a centralized database (SQL and Data Factory), which would be a stronger backbone for everything above.",
     "Build leadership-facing Power BI dashboards on top of the same consolidated data.",
     "Small hardening steps, like standardizing the monthly folder names and adding alerts for missing or late source files.",
 ], top=Inches(2.5), size=15.5, gap=13)
-footer(s, 12)
+footer(s)
 
 
 # =====================================================================
-# 13 — WHY ME (close)
+# LOOKING AHEAD (close)
 # =====================================================================
 s = add_slide(INK)
 rect(s, 0, 0, SW, Inches(0.16), RED)
@@ -496,13 +601,12 @@ rect(s, 0, Inches(0.16), SW, Pt(3), YELLOW)
 tb, tf = textbox(s, Inches(0.8), Inches(0.75), Inches(11), Inches(0.5))
 para(tf, "LOOKING AHEAD", size=13, color=YELLOW, bold=True, first=True)
 tb, tf = textbox(s, Inches(0.8), Inches(1.35), Inches(11.7), Inches(1.0))
-para(tf, "I have genuinely loved being part of this team.", size=30, color=WHITE,
-     bold=True, first=True)
+para(tf, "I have genuinely loved being part of this team.", size=30, color=WHITE, bold=True, first=True)
 pts = [
     "Thank you for the trust, the patience, and the chance to work on real problems that matter to the team.",
     "I learned an enormous amount here, from the AR and collections side of the business to the tools that support it.",
     "I am proud of what we built together, and I know there is more I could contribute with more time.",
-    "If the opportunity is there after I graduate, I would love to come back and keep building on this with you.",
+    "This internship confirmed my interest in finance, analytics, and automation.",
 ]
 tb, tf = textbox(s, Inches(0.8), Inches(2.7), Inches(11.7), Inches(3.2))
 first = True
@@ -511,12 +615,12 @@ for p in pts:
     first = False
 box = rrect(s, Inches(0.8), Inches(6.05), Inches(11.7), Inches(0.85), RED, radius=0.12)
 tb, tf = textbox(s, Inches(1.1), Inches(6.14), Inches(11.1), Inches(0.65), valign=MSO_ANCHOR.MIDDLE)
-para(tf, "Thank you for a great experience. I hope this is the start, not the end.", size=17,
-     color=WHITE, bold=True, first=True)
+para(tf, "I am grateful for the opportunity to contribute to AMKAD, and would be excited to keep "
+         "building solutions like these in the future.", size=15, color=WHITE, bold=True, first=True)
 
 
 # =====================================================================
-# 14 — THANK YOU
+# THANK YOU
 # =====================================================================
 s = add_slide()
 rect(s, 0, Inches(3.5), SW, Pt(3), RED)
