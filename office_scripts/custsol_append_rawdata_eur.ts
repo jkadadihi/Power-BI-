@@ -104,9 +104,13 @@ function main(workbook: ExcelScript.Workbook, sourceJson: string): string {
 
   // addRows appends below existing data and extends any formula columns
   // (F:P) down automatically, same as Excel does when you fill a table down.
-  table.addRows(-1, newRows);
-
-  workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+  // Guard against an empty array: addRows([]) throws a dimension-mismatch
+  // error, so if every incoming row was skipped as a duplicate there is
+  // simply nothing to add — that is a valid no-op, not a failure.
+  if (newRows.length > 0) {
+    table.addRows(-1, newRows);
+    workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+  }
 
   return JSON.stringify({
     rowsAppended: newRows.length,
