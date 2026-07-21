@@ -175,7 +175,7 @@ para(tf, "DHL EXPRESS AMERICAS  ·  KEY ACCOUNT DESK (AMKAD)", size=13,
 tb, tf = textbox(s, Inches(0.8), Inches(2.7), Inches(11.7), Inches(2.0))
 para(tf, "Automating AR Reporting & Collections", size=44, color=WHITE, bold=True, first=True,
      space_after=6)
-para(tf, "From manual, invisible processes to a live dashboard and self-running data pipelines",
+para(tf, "Moving a few manual processes toward a live dashboard and pipelines that run on their own",
      size=17, color=RGBColor(0xC9, 0xCE, 0xD4))
 tb, tf = textbox(s, Inches(0.8), Inches(5.7), Inches(11), Inches(1.0))
 para(tf, "Jean Kadadihi", size=17, color=WHITE, bold=True, first=True, space_after=2)
@@ -187,25 +187,25 @@ para(tf, "Finance Intern, Controlling  ·  Internship Close-Out Presentation", s
 # 2 — IMPACT HEADLINE (hook)
 # =====================================================================
 s = add_slide()
-eyebrow(s, "The Bottom Line")
+eyebrow(s, "The Impact")
 tb, tf = textbox(s, Inches(0.7), Inches(0.9), Inches(11.9), Inches(1.0))
-para(tf, "What this internship delivered", size=29, color=INK, bold=True, first=True)
+para(tf, "What the work added up to", size=29, color=INK, bold=True, first=True)
 rect(s, Inches(0.7), Inches(1.75), Inches(11.9), Pt(1.4), LINE)
 
 stat_tile(s, Inches(0.7), Inches(2.15), Inches(3.75), Inches(1.7),
-          "~210 hrs", "Collector time recovered per year (conservative) — up to ~360 hrs", vsize=32)
+          "~275 hrs", "of team time given back each year, and likely more. A conservative estimate.", vsize=32)
 stat_tile(s, Inches(4.79), Inches(2.15), Inches(3.75), Inches(1.7),
-          "6 / week", "Recurring SOAs generated & emailed automatically (Arrow ×5, Baker ×1)", vsize=32)
+          "6 / week", "statements now generated and emailed automatically (Arrow ×5, Baker ×1)", vsize=32)
 stat_tile(s, Inches(8.88), Inches(2.15), Inches(3.72), Inches(1.7),
-          "1 new", "Live AR reporting capability that did not exist before", vsize=32)
+          "1 new", "shared AR reporting view the team did not have in one place before", vsize=32)
 
 tb, tf = textbox(s, Inches(0.7), Inches(4.2), Inches(11.9), Inches(1.0))
-para(tf, "≈ 5 to 9 full 40-hour work-weeks of collector time returned to actual collections — every year.",
-     size=18, color=RED_DARK, bold=True, first=True)
+para(tf, "That is roughly 7 to 11 full work-weeks a year that collectors can spend on collections instead of manual reporting.",
+     size=17, color=RED_DARK, bold=True, first=True)
 bullets(s, [
-    "Built net-new AR visibility (aging, UAC, trends, what-if simulators) that leadership never had before.",
-    "Automated the daily data file that feeds it — no one has to rebuild it by hand anymore.",
-    "Removed a single-person dependency and the error risk that came with manual copy/paste.",
+    "Helped bring AR visibility together in one place: aging, UAC, trends, and what-if scenarios.",
+    "Took the daily data file off someone's plate so it no longer has to be rebuilt by hand.",
+    "Reduced the reliance on one person, and the small errors that manual copy and paste can introduce.",
 ], top=Inches(4.85), size=14, gap=8)
 footer(s, 2)
 
@@ -216,11 +216,11 @@ footer(s, 2)
 s = add_slide()
 slide_title(s, "Agenda", "What I'll walk through")
 items = [
-    ("Where things stood", "The manual, invisible starting point"),
-    ("What I built", "Three connected automations"),
-    ("The impact", "Hours saved — with the math shown"),
-    ("The hard parts", "Power BI, data, and production challenges"),
-    ("What's next", "How this scales beyond me"),
+    ("Where things stood", "The manual starting point"),
+    ("What I worked on", "Three connected automations"),
+    ("The impact", "Time saved, with the math shown"),
+    ("The hard parts", "Power BI, data, and the challenges along the way"),
+    ("What's next", "How this can grow from here"),
 ]
 x = Inches(0.7)
 for i, (h, d) in enumerate(items):
@@ -249,9 +249,9 @@ card(s, Inches(0.7), Inches(2.45), Inches(3.85), Inches(3.9), "AR Reporting",
       "Leadership lacked a single place to look"], accent=RED)
 card(s, Inches(4.74), Inches(2.45), Inches(3.85), Inches(3.9), "Daily Data File",
      ["A collector rebuilt it every business day",
-      "Copy → paste → calculate → save-as, by hand",
-      "~15 min/day, and only one person knew the steps",
-      "Manual copy/paste → real error risk"], accent=RED)
+      "Copy, paste, calculate, and save a new file",
+      "Around 30 to 35 min a day, and mostly one person",
+      "Manual copy and paste can introduce small errors"], accent=RED)
 card(s, Inches(8.78), Inches(2.45), Inches(3.82), Inches(3.9), "Statements (SOA)",
      ["Collectors generated SOAs in START by hand",
       "Then formatted, emailed, attached, CC'd",
@@ -264,22 +264,22 @@ footer(s, 4)
 # 5 — WHAT I BUILT (overview)
 # =====================================================================
 s = add_slide()
-slide_title(s, "What I Built", "Three connected automations — one AR workflow, digitized")
+slide_title(s, "What I Worked On", "Three connected automations across the AR workflow")
 card(s, Inches(0.7), Inches(2.45), Inches(3.85), Inches(3.9), "1 · AR Dashboard",
      ["Live HTML report of the whole book",
       "Aging, UAC, gross sales, payments, trends",
-      "Drill-downs + what-if payment simulators",
-      "New visibility that didn't exist before"], accent=RED)
+      "Drill-downs and what-if payment simulators",
+      "Visibility we did not have in one place"], accent=RED)
 card(s, Inches(4.74), Inches(2.45), Inches(3.85), Inches(3.9), "2 · Daily Pipeline",
      ["Feeds the dashboard automatically",
-      "Source file lands → data extracted & appended",
+      "Source file lands, data is extracted and added",
       "New dated file built with full history",
-      "Runs hands-off, every business day"], accent=RED_DARK)
+      "Runs on its own, every business day"], accent=RED_DARK)
 card(s, Inches(8.78), Inches(2.45), Inches(3.82), Inches(3.9), "3 · SOA Automation",
-     ["6 weekly statements auto-generated",
-      "Auto-emailed with attachments & CCs",
-      "Configurable framework, not one-offs",
-      "Collectors handle exceptions only"], accent=INK)
+     ["6 weekly statements generated automatically",
+      "Emailed with attachments and stakeholders CC'd",
+      "A configurable framework, not one-offs",
+      "Collectors step in only for exceptions"], accent=INK)
 footer(s, 5)
 
 
@@ -288,19 +288,20 @@ footer(s, 5)
 # =====================================================================
 s = add_slide()
 slide_title(s, "Pillar 1 · The AR Dashboard",
-            "A live view of the receivables book — built from nothing")
+            "A live view of the receivables book that we did not have before")
 bullets(s, [
-    "Portfolio KPIs: Total AR, Overdue %, GT60 / GT90 aging, UAC, gross sales, payments.",
-    "Drill-downs both ways — country ↔ customer — to see what's driving every number.",
+    "Portfolio KPIs: Total AR, Overdue %, GT60 and GT90 aging, UAC, gross sales, payments.",
+    "Drill-downs both ways, from country to customer, to see what is driving each number.",
     "Trends over time and same-month year-over-year comparison.",
-    "What-if payment simulators: portfolio-level and customer-level, with manual allocation across aging bands and UAC.",
-    "Editable risk thresholds and an Action-Required list mapped to the collections escalation process.",
+    "What-if payment simulators, at portfolio and customer level, with manual allocation across aging bands and UAC.",
+    "Editable risk thresholds and an Action-Required list that follows the collections escalation process.",
 ], top=Inches(2.45), size=15, gap=11)
 box = rrect(s, Inches(0.7), Inches(5.95), Inches(11.9), Inches(0.85), RGBColor(0xFC, 0xEF, 0xEF),
             line=True, radius=0.12)
 tb, tf = textbox(s, Inches(1.0), Inches(6.05), Inches(11.3), Inches(0.65), valign=MSO_ANCHOR.MIDDLE)
-para(tf, "Why it matters:  this reporting did not exist before — I created the visibility, "
-         "not just automated an existing report.", size=13.5, color=RED_DARK, bold=True, first=True)
+para(tf, "It replaced the report tab that used to be updated by hand each day, and brought AR "
+         "visibility together in one place that the team did not have before.",
+         size=13.5, color=RED_DARK, bold=True, first=True)
 footer(s, 6)
 
 
@@ -311,28 +312,28 @@ s = add_slide()
 slide_title(s, "Pillar 2 · The Daily Data Pipeline",
             "The manual daily file, now self-running")
 tb, tf = textbox(s, Inches(0.7), Inches(2.4), Inches(5.7), Inches(0.4))
-para(tf, "BEFORE  —  ~15 min/day, one person", size=13, color=RED, bold=True, first=True)
+para(tf, "Before:  around 30 to 35 min a day, by hand", size=13, color=RED, bold=True, first=True)
 bullets(s, [
-    "Open the emailed report, copy the data",
-    "Paste into a template, calculate",
+    "Open the emailed report and copy the data",
+    "Paste into a template and calculate",
     "Copy specific columns into the workbook",
-    "Refresh, then Save-As a new dated file",
+    "Update the report tab, then save a new file",
 ], top=Inches(2.85), left=Inches(0.7), width=Inches(5.6), size=13, gap=7, color=SOFT)
 
 tb, tf = textbox(s, Inches(6.85), Inches(2.4), Inches(5.7), Inches(0.4))
-para(tf, "AFTER  —  hands-off", size=13, color=GOOD, bold=True, first=True)
+para(tf, "After:  it runs on its own", size=13, color=GOOD, bold=True, first=True)
 bullets(s, [
-    "File lands in the shared folder → flow fires",
-    "Office Script reads & maps today's rows",
-    "New dated file built, carrying full history",
-    "Today's rows appended → dashboard updates",
+    "The file lands in the shared folder and the flow starts",
+    "An Office Script reads and maps today's rows",
+    "A new dated file is built, carrying full history",
+    "Today's rows are added and the dashboard updates",
 ], top=Inches(2.85), left=Inches(6.85), width=Inches(5.6), size=13, gap=7, color=SOFT)
 
 box = rrect(s, Inches(0.7), Inches(5.55), Inches(11.9), Inches(1.25), INKCARD, radius=0.08)
 tb, tf = textbox(s, Inches(1.0), Inches(5.72), Inches(11.3), Inches(0.95), valign=MSO_ANCHOR.MIDDLE)
-para(tf, "Built with:  Power Query (M)  ·  Office Scripts (TypeScript)  ·  Power Automate  ·  SharePoint",
+para(tf, "Built with  Power Query (M),  Office Scripts (TypeScript),  Power Automate,  and SharePoint",
      size=13.5, color=YELLOW, bold=True, first=True, space_after=5)
-para(tf, "Includes duplicate protection and graceful handling of missing / incomplete data (e.g. month-start EUR gaps).",
+para(tf, "It also protects against duplicates and handles missing or incomplete data gracefully, such as month-start EUR gaps.",
      size=12.5, color=RGBColor(0xCF, 0xD4, 0xDA))
 footer(s, 7)
 
@@ -344,16 +345,17 @@ s = add_slide()
 slide_title(s, "Pillar 3 · SOA Automation",
             "Recurring statements generated & delivered without a collector touching them")
 bullets(s, [
-    "Automated 6 recurring weekly Statements of Account:  Arrow Electronics (5 countries) + Baker Hughes (1).",
-    "Auto-generated from START templates with the correct account filters, then auto-emailed — attachments included, internal stakeholders CC'd.",
-    "Built as a configurable framework: new customers onboard by updating configuration (accounts, recipients, schedule, template), not by rebuilding the solution.",
-    "Exception-based by design — collectors step in only for exceptions, and spend their time on collections instead of routine report generation.",
+    "Automated 6 recurring weekly Statements of Account: Arrow Electronics across 5 countries, and Baker Hughes.",
+    "Generated from START templates with the right account filters, then emailed automatically with attachments and internal stakeholders CC'd.",
+    "Built as a configurable framework, so new customers can be added by updating configuration (accounts, recipients, schedule, template) rather than rebuilding it.",
+    "Designed so collectors only step in for exceptions, and can spend more of their time on collections.",
 ], top=Inches(2.45), size=14.5, gap=11)
 box = rrect(s, Inches(0.7), Inches(5.95), Inches(11.9), Inches(0.85), RGBColor(0xFC, 0xEF, 0xEF),
             line=True, radius=0.12)
 tb, tf = textbox(s, Inches(1.0), Inches(6.05), Inches(11.3), Inches(0.65), valign=MSO_ANCHOR.MIDDLE)
-para(tf, "Honest scope:  2 customers live today (6 SOAs/week) on a framework designed to scale to the rest — "
-         "the hard part (the reusable engine) is done.", size=13, color=RED_DARK, bold=True, first=True)
+para(tf, "To be clear on scope: two customers are live today, six SOAs a week, on a framework built so more "
+         "can be added over time. The reusable engine is the part that is done.",
+         size=13, color=RED_DARK, bold=True, first=True)
 footer(s, 8)
 
 
@@ -361,19 +363,20 @@ footer(s, 8)
 # 9 — THE NUMBERS (money slide)
 # =====================================================================
 s = add_slide()
-slide_title(s, "The Impact", "Hours saved — with the math shown, conservatively")
+slide_title(s, "The Impact", "Time saved, with the math shown, kept deliberately conservative")
 
 rows = [
     ("", "Per week", "Per month", "Per year", False),
-    ("Daily data pipeline  (15 min × 5 days)", "1.25 hrs", "~5.4 hrs", "~63 hrs", False),
+    ("Daily data file  (15 min × 5 days)", "1.25 hrs", "~5.4 hrs", "~63 hrs", False),
+    ("Daily report tab  (15–20 min × 5 days)", "1.25–1.7 hrs", "~5–7 hrs", "~63–83 hrs", False),
     ("SOA automation  (6 SOAs × 30–60 min)", "3–6 hrs", "13–26 hrs", "150–300 hrs", False),
-    ("Combined", "~4–7 hrs", "~18–31 hrs", "~210–360 hrs", True),
+    ("Combined", "~5.5–9 hrs", "~24–38 hrs", "~275–445 hrs", True),
 ]
 tw = Inches(11.9)
 c0, c1, c2, c3 = Inches(5.0), Inches(2.3), Inches(2.3), Inches(2.3)
 x0 = Inches(0.7)
-y = Inches(2.45)
-rh = Inches(0.72)
+y = Inches(2.4)
+rh = Inches(0.6)
 for i, (label, a, b, c, total) in enumerate(rows):
     ry = y + i * rh
     if i == 0:
@@ -400,11 +403,11 @@ for i, (label, a, b, c, total) in enumerate(rows):
                  bold=(total or j == 0), first=True, align=al)
             cx += cw
 
-tb, tf = textbox(s, Inches(0.7), Inches(5.55), Inches(11.9), Inches(1.3))
-para(tf, "≈ 5 to 9 full 40-hour work-weeks of collector time recovered per year.",
+tb, tf = textbox(s, Inches(0.7), Inches(5.6), Inches(11.9), Inches(1.3))
+para(tf, "That comes to roughly 7 to 11 full work-weeks of time given back to the team each year.",
      size=16, color=RED_DARK, bold=True, first=True, space_after=8)
-para(tf, "Assumptions (deliberately conservative):  5 business days/week; SOA at 30–60 min each, 6/week; "
-         "figures EXCLUDE error-correction, rework, and downstream analysis time — which would push the number higher, not lower.",
+para(tf, "The assumptions are kept conservative on purpose: 5 business days a week, SOAs at 30 to 60 minutes each, "
+         "6 a week. The figures leave out error-correction, rework, and analysis time, so the real number is likely higher.",
      size=11.5, color=MUTED, italic=True)
 footer(s, 9)
 
@@ -413,7 +416,7 @@ footer(s, 9)
 # 10 — THE HARD PARTS (credibility)
 # =====================================================================
 s = add_slide()
-slide_title(s, "The Hard Parts", "What it actually took — and what I learned")
+slide_title(s, "The Hard Parts", "What it took along the way, and what I learned")
 card(s, Inches(0.7), Inches(2.4), Inches(3.85), Inches(2.05), "Power BI & the data",
      ["Extensive trial-and-error building the model",
       "Fragmented, inconsistent source data",
@@ -421,7 +424,7 @@ card(s, Inches(0.7), Inches(2.4), Inches(3.85), Inches(2.05), "Power BI & the da
 card(s, Inches(4.74), Inches(2.4), Inches(3.85), Inches(2.05), "Hosting blocked",
      ["Azure Functions blocked by permissions (RBAC)",
       "Re-architected the whole recurring-run approach",
-      "Landed on GitHub Actions — zero-friction, no cost"], accent=RED, title_size=13.5)
+      "Landed on GitHub Actions, which worked cleanly and at no cost"], accent=RED, title_size=13.5)
 card(s, Inches(8.78), Inches(2.4), Inches(3.82), Inches(2.05), "The right data pattern",
      ["Power Query replaces, it can't append",
       "Designed a carry-history-forward pipeline",
@@ -476,10 +479,10 @@ footer(s, 11)
 s = add_slide()
 slide_title(s, "What's Next", "How this scales beyond me")
 bullets(s, [
-    "Expand the SOA framework to the remaining customers and countries — the reusable engine is already built.",
-    "Migrate the data layer to a centralized database (SQL / Data Factory) — the scalable backbone for everything above.",
-    "Publish leadership-facing Power BI dashboards on top of the same consolidated data.",
-    "Hardening: standardize the monthly folder naming and add optional alerting for missing / late source files.",
+    "Extend the SOA framework to more customers and countries, since the reusable engine is already in place.",
+    "Move the data layer toward a centralized database (SQL and Data Factory), which would be a stronger backbone for everything above.",
+    "Build leadership-facing Power BI dashboards on top of the same consolidated data.",
+    "Small hardening steps, like standardizing the monthly folder names and adding alerts for missing or late source files.",
 ], top=Inches(2.5), size=15.5, gap=13)
 footer(s, 12)
 
@@ -491,15 +494,15 @@ s = add_slide(INK)
 rect(s, 0, 0, SW, Inches(0.16), RED)
 rect(s, 0, Inches(0.16), SW, Pt(3), YELLOW)
 tb, tf = textbox(s, Inches(0.8), Inches(0.75), Inches(11), Inches(0.5))
-para(tf, "WHY ME", size=13, color=YELLOW, bold=True, first=True)
+para(tf, "LOOKING AHEAD", size=13, color=YELLOW, bold=True, first=True)
 tb, tf = textbox(s, Inches(0.8), Inches(1.35), Inches(11.7), Inches(1.0))
-para(tf, "I don't just spot automation opportunities — I ship them.", size=30, color=WHITE,
+para(tf, "I have genuinely loved being part of this team.", size=30, color=WHITE,
      bold=True, first=True)
 pts = [
-    "Built net-new capability that didn't exist — and put it into production.",
-    "Delivered quantifiable time back to the team (~210–360 hrs/yr) and cut real error & key-person risk.",
-    "Worked through ambiguity, a hosting blocker, a production incident, and dozens of technical dead-ends — and still shipped.",
-    "Left everything documented, tested, and running without me.",
+    "Thank you for the trust, the patience, and the chance to work on real problems that matter to the team.",
+    "I learned an enormous amount here, from the AR and collections side of the business to the tools that support it.",
+    "I am proud of what we built together, and I know there is more I could contribute with more time.",
+    "If the opportunity is there after I graduate, I would love to come back and keep building on this with you.",
 ]
 tb, tf = textbox(s, Inches(0.8), Inches(2.7), Inches(11.7), Inches(3.2))
 first = True
@@ -508,8 +511,8 @@ for p in pts:
     first = False
 box = rrect(s, Inches(0.8), Inches(6.05), Inches(11.7), Inches(0.85), RED, radius=0.12)
 tb, tf = textbox(s, Inches(1.1), Inches(6.14), Inches(11.1), Inches(0.65), valign=MSO_ANCHOR.MIDDLE)
-para(tf, "Give me the next problem — I'll ship the solution.", size=17, color=WHITE, bold=True,
-     first=True)
+para(tf, "Thank you for a great experience. I hope this is the start, not the end.", size=17,
+     color=WHITE, bold=True, first=True)
 
 
 # =====================================================================
@@ -521,9 +524,9 @@ tb, tf = textbox(s, Inches(0.8), Inches(2.5), Inches(11.7), Inches(1.0), valign=
 para(tf, "Thank you", size=40, color=INK, bold=True, first=True)
 tb, tf = textbox(s, Inches(0.8), Inches(3.75), Inches(11.7), Inches(1.2))
 para(tf, "Jean Kadadihi", size=18, color=INK, bold=True, first=True, space_after=3)
-para(tf, "Finance Intern, Controlling  ·  DHL Express Americas — Key Account Desk (AMKAD)",
+para(tf, "Finance Intern, Controlling  ·  DHL Express Americas, Key Account Desk (AMKAD)",
      size=13.5, color=SOFT, space_after=2)
-para(tf, "Questions welcome.", size=13.5, color=RED_DARK, italic=True)
+para(tf, "I would be happy to answer any questions.", size=13.5, color=RED_DARK, italic=True)
 logo_placeholder(s, Inches(10.9), Inches(0.6))
 
 
