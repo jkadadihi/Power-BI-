@@ -102,6 +102,16 @@ function main(workbook: ExcelScript.Workbook, sourceJson: string): string {
     newRows.push(rowValues);
   });
 
+  // Diagnostic: surface the exact dimensions so a mismatch is unambiguous
+  // instead of the opaque "doesn't match the size" Office JS error.
+  const firstRowWidth = newRows.length > 0 ? newRows[0].length : -1;
+  if (newRows.length > 0 && firstRowWidth !== columnCount) {
+    throw new Error(
+      `Row width ${firstRowWidth} != table column count ${columnCount}. ` +
+      `Headers seen (${columnCount}): [ ${headerNames.join(" | ")} ]`
+    );
+  }
+
   // addRows appends below existing data and extends any formula columns
   // (F:P) down automatically, same as Excel does when you fill a table down.
   // Guard against an empty array: addRows([]) throws a dimension-mismatch
