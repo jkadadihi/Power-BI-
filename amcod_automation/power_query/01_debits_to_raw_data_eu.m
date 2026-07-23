@@ -1,110 +1,64 @@
-// Power Query M: Debits (Refreshable) -> Raw Data EU "Live"/EUR columns
+// Power Query M: Current Month's Debits -> Staging (Live/EUR columns)
 //
-// Replaces AMCOD Stage 3 ("Update Raw Data EU"), the single biggest manual
-// step in the process: open the Debits workbook, open the Monthly workbook,
-// scroll to the bottom of Raw Data EU, copy a block, paste values, fix
-// formatting, update the month indicator - repeated every close.
+// DESIGN B ("file per month, full history carried inside the file"):
+// Each monthly workbook already contains the entire 2023 -> prior-month
+// history, carried forward every time the file is duplicated for a new
+// month (Stage 1 - "Month Roll Forward"). So this query does NOT rebuild
+// history and does NOT recurse every month folder - the history is already
+// in the file. Its ONLY job is to pull THIS month's Debits block, which an
+// Office Script (see office_scripts/AppendCurrentMonthToRawData.ts) then
+// appends to the bottom of RawData as permanent values - exactly the manual
+// "scroll to bottom, paste the new month's block" step from Stage 3.
 //
-// CONFIRMED FOLDER STRUCTURE (from the actual SharePoint library):
-//   .../2026 Presentations/2026 AMKAD Summary/Qtr 2/June 2026/
-//     AMKAD Main Metrics Development Template...
-//     AMKAD_KPI_ViewRefreshable_Debits Only ...      <- the source file
-//     GPMR_CFSC_AMKAD_202606_V1.xlsm
-//     Monthly_Performance_Repo...
-//     SSC (KAD) Monthly Data File.zip
-// A new dated subfolder is created every month (Stage 1 - "Month Roll
-// Forward"), nested under a quarter folder, nested under a year folder. The
-// Debits file itself keeps the SAME name every month - only its folder
-// changes - so:
-//   - the month/year is parsed from the FOLDER path, not the filename
-//   - the query points at the stable parent folder ("2026 AMKAD Summary")
-//     and lets SharePoint.Files recurse through every Qtr/Month subfolder,
-//     so a brand new month folder is picked up on refresh with NO edits to
-//     this query. The only maintenance this needs is once a year, when the
-//     "2026" year folder itself rolls to "2027" - update
-//     DebitsRoot_RelativePath then.
-//   - other workbooks living in the same folder (Main Metrics Template,
-//     GPMR, Monthly Performance Report, the .zip) are excluded by filtering
-//     on filename containing "Debits".
+// Because the appended rows are written as values, they become part of the
+// history the next duplicate carries forward. Old Debits source files are
+// therefore never needed - only the current month's file has to exist.
+//
+// LOAD THIS QUERY to a dedicated staging worksheet/table (e.g.
+// "Staging_CurrentMonth"). Do NOT load it onto RawData directly - RawData
+// has formula columns (DSO, TDSO Gap, %) that Power Query would destroy,
+// and the append is done by the Office Script, not by this query.
 //
 // CONFIRMED SHEET NAME (inside the Debits workbook): VW_AMKAD_Source_Debits
 //
-// CONFIRMED DEBITS COLUMNS (workbook: "AMKAD_KPI_ViewRefreshable_Debits Only"):
+// CONFIRMED DEBITS COLUMNS (sheet VW_AMKAD_Source_Debits):
 //   A Month | B Country | C Customer | D Go Live Customer
-//   E Payment Term (days) | F DSO
+//   E Payment Term (days) | F DSO (NOT used - DSO is a formula in RawData)
 //   G Gross Sales € | H Total AR € | I Overdue € | J >60 days € | K >90 days €
 //   L Total UAC € | M Total Payments €
-//   N Gross Sales | O Total AR | P Overdue | Q >60 days | R >90 days
-//   S Total UAC | T Total Payments
-// (columns G-M are EUR; N-T are the same metrics in local currency)
+//   N-T = same metrics in local currency (NOT used - Live/EUR only)
 //
-// This query ONLY maps the EUR ("Live") columns into Raw Data EU. The
-// local-currency columns (N-T) and the Monthly file's TDSO/TDSO Gap/% and
-// K-O columns are intentionally left untouched - they are not sourced from
-// Debits, so nothing is pasted into them.
+// TARGET (RawData) Live/EUR columns the append script writes into:
+//   Month              <- Debits A Month
+//   Country            <- Debits B Country
+//   Customer           <- Debits C Customer
+//   Onboard Date       <- Debits D Go Live Customer
+//   Payment (days)     <- Debits E Payment Term (days)
+//   Total AR € (Live)      <- Debits H Total AR €
+//   Overdue € (Live)       <- Debits I Overdue €
+//   >60 days € (Live)      <- Debits J >60 days €
+//   Gross Sales (Live)     <- Debits G Gross Sales €
+//   >90 days (Live)        <- Debits K >90 days €
+//   Total UAC € (Live)     <- Debits L Total UAC €
+//   Total Payments € (Live) <- Debits M Total Payments €
 //
-// CONFIRMED: DSO is NOT sourced from Debits. The RawData table's own DSO
-// column is a formula:
-//   =IFERROR(SUM([@[Total AR]]/[@[Gross Sales]]*(VLOOKUP([@Month],CD3Mth,3,0))),0)
-// - calculated locally from that table's own "Total AR"/"Gross Sales"
-// columns (via same-row structured references, which only work within one
-// table) times a lookup factor from a separate "CD3Mth" table. Debits'
-// own DSO column (Debits F) is therefore NOT mapped anywhere below.
-//
-// OPEN QUESTION before this query can be pointed at the real target: which
-// exact RawData columns are the plain "Total AR" and "Gross Sales" the DSO
-// formula reads (no €, no "Live" tag)? Because that formula only works
-// within a single table, those columns must live inside the SAME table as
-// the DSO formula - meaning THOSE, not the "(Live)" columns below, may be
-// the real manual-paste target Marcia fills in today. Confirmed separately
-// that this workbook currently has zero Power Query connections (Queries
-// [0] in the Power Query editor), so there's nothing existing to conflict
-// with - but whichever columns feed DSO must stay inside the RawData
-// table for `[@[Total AR]]` etc. to keep resolving after a refresh.
-//
-// TARGET (Raw Data EU / Monthly file) MAPPING - EUR/"Live" columns only,
-// pending the open question above:
-//   A Month              <- Debits A Month
-//   B Country             <- Debits B Country
-//   C Customer            <- Debits C Customer
-//   D Onboard Date        <- Debits D Go Live Customer
-//   E Payment (days)      <- Debits E Payment Term (days)
-//   P Total AR (Live)     <- Debits H Total AR €
-//   Q Overdue (Live)      <- Debits I Overdue €
-//   R >60 days (Live)     <- Debits J >60 days €
-//   S Gross Sales (Live)  <- Debits G Gross Sales €
-//   T >90 days (Live)     <- Debits K >90 days €
-//   Z Total UAC € (Live)      <- Debits L Total UAC €
-//   AB Total Payments € (Live) <- Debits M Total Payments €
-//
-// Load this query's output to a staging table (e.g. "Debits Live Feed")
-// next to RawData rather than directly overwriting RawData itself -
-// RawData mixes formula columns (DSO, TDSO Gap, %) with data columns, and
-// Power Query owns every column of whatever table it's loaded into, so it
-// can't be pointed at RawData directly without breaking those formulas.
-//
-// PARAMETERS (set these once, Query Editor > Manage Parameters):
-//   SharePointSite_Url        e.g. "https://dhl.sharepoint.com/sites/AMROFinance"
-//   DebitsRoot_RelativePath   e.g. "/2026 Presentations/2026 AMKAD Summary"
-//                             (update the "2026" segment once a year)
+// PARAMETERS (Query Editor > Manage Parameters):
+//   SharePointSite_Url      e.g. "https://dhl.sharepoint.com/sites/AMROFinance"
+//   ReportMonth_FolderName  the current month's folder name, e.g. "July 2026".
+//                           The Power Automate flow sets this each month so a
+//                           freshly duplicated file pulls the RIGHT month
+//                           instead of the month it was copied from.
 
 let
     Source = SharePoint.Files(SharePointSite_Url, [ApiVersion = 15]),
 
-    UnderDebitsRoot = Table.SelectRows(Source,
-        each Text.Contains([Folder Path], DebitsRoot_RelativePath)),
-
-    ExcelFiles = Table.SelectRows(UnderDebitsRoot,
-        each (Text.EndsWith([Extension], ".xlsx") or Text.EndsWith([Extension], ".xlsm"))
+    // Narrow to the ONE Debits file in this month's folder.
+    ThisMonthFile = Table.SelectRows(Source,
+        each Text.Contains([Folder Path], ReportMonth_FolderName)
+             and (Text.EndsWith([Extension], ".xlsx") or Text.EndsWith([Extension], ".xlsm"))
              and Text.Contains([Name], "Debits", Comparer.OrdinalIgnoreCase)),
 
-    // Folder path ends in ".../Qtr 2/June 2026/" - the last non-empty
-    // segment is the month folder name, e.g. "June 2026".
-    AddMonthRaw = Table.AddColumn(ExcelFiles, "month_raw",
-        each List.Last(List.RemoveItems(Text.Split(Text.TrimEnd([Folder Path], "/"), "/"), {""})),
-        type text),
-
-    AddData = Table.AddColumn(AddMonthRaw, "Data", each Excel.Workbook([Content], null, true)),
+    AddData = Table.AddColumn(ThisMonthFile, "Data", each Excel.Workbook([Content], null, true)),
     ExpandSheets = Table.ExpandTableColumn(AddData, "Data", {"Item", "Kind", "Data"}, {"Item", "Kind", "Data"}),
     SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Kind] = "Sheet" and [Item] = "VW_AMKAD_Source_Debits"),
 
@@ -116,10 +70,7 @@ let
 
     RemoveHeaderNoise = Table.SelectRows(ExpandRows, each [Country] <> null and [Country] <> "Country"),
 
-    // Map straight through to the Raw Data EU column names confirmed above.
-    // Local-currency columns (N-T in Debits) are deliberately not selected.
-    // DSO is deliberately excluded - it's a local formula in RawData, not
-    // sourced from Debits (see comment block above).
+    // Live/EUR columns only. DSO and local-currency columns are excluded.
     Selected = Table.SelectColumns(RemoveHeaderNoise, {
         "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
         "Total AR €", "Overdue €", ">60 days €", "Gross Sales €", ">90 days €",
@@ -127,14 +78,11 @@ let
     }),
 
     Renamed = Table.RenameColumns(Selected, {
-        {"Month", "Month"},
-        {"Country", "Country"},
-        {"Customer", "Customer"},
         {"Go Live Customer", "Onboard Date"},
         {"Payment Term (days)", "Payment (days)"},
-        {"Total AR €", "Total AR (Live)"},
-        {"Overdue €", "Overdue (Live)"},
-        {">60 days €", ">60 days (Live)"},
+        {"Total AR €", "Total AR € (Live)"},
+        {"Overdue €", "Overdue € (Live)"},
+        {">60 days €", ">60 days € (Live)"},
         {"Gross Sales €", "Gross Sales (Live)"},
         {">90 days €", ">90 days (Live)"},
         {"Total UAC €", "Total UAC € (Live)"},
@@ -145,12 +93,12 @@ let
         {"Month", type date},
         {"Country", type text}, {"Customer", type text},
         {"Onboard Date", type text}, {"Payment (days)", Int64.Type},
-        {"Total AR (Live)", Currency.Type}, {"Overdue (Live)", Currency.Type},
-        {">60 days (Live)", Currency.Type}, {"Gross Sales (Live)", Currency.Type},
+        {"Total AR € (Live)", Currency.Type}, {"Overdue € (Live)", Currency.Type},
+        {">60 days € (Live)", Currency.Type}, {"Gross Sales (Live)", Currency.Type},
         {">90 days (Live)", Currency.Type},
         {"Total UAC € (Live)", Currency.Type}, {"Total Payments € (Live)", Currency.Type}
     }),
 
-    Sorted = Table.Sort(Typed, {{"Month", Order.Ascending}, {"Country", Order.Ascending}})
+    Sorted = Table.Sort(Typed, {{"Country", Order.Ascending}, {"Customer", Order.Ascending}})
 in
     Sorted

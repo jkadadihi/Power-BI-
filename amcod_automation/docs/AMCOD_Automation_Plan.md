@@ -40,7 +40,7 @@ missed, blanks daily reporting files.
 
 | # | Manual stage | Deliverable in this repo | Status |
 |---|---|---|---|
-| 1 | Debits Workbook -> Raw Data EU (Stage 3) | `power_query/01_debits_to_raw_data_eu.m` | Built |
+| 1 | Roll-forward + Debits -> Raw Data EU (Stages 1 & 3) | `power_query/01_debits_to_raw_data_eu.m` + `office_scripts/AppendCurrentMonthToRawData.ts` + `power_automate/monthly_rollforward_flow.md` | Built |
 | 2 | Remove Amazon (Stage 5) | `power_query/02_remove_amazon.m` | Built |
 | 3 | Negative payment cleanup (Stage 4) | `power_query/03_convert_negative_payments.m` | Built |
 | 4 | DSO/TDSO/SPR validation (Stage 7) | `office_scripts/ValidationDashboard.ts` | Built |
@@ -63,40 +63,52 @@ report cells.
 
 ## How to adopt these
 
-`power_query/01_debits_to_raw_data_eu.m` (Priority 1) has been validated
-against the real structure:
+### Priority 1 - the Design B model (validated against the real workbook)
 
-- Source is `AMKAD_KPI_ViewRefreshable_Debits Only...` on SharePoint, inside
-  a dated month folder (`.../2026 AMKAD Summary/Qtr 2/June 2026/`) that gets
-  recreated every month per Stage 1. The query points at the stable parent
-  folder and lets `SharePoint.Files` recurse through every Qtr/Month
-  subfolder, so a new month needs zero query edits - only the year segment
-  in `DebitsRoot_RelativePath` needs updating, once a year.
-- Real Debits columns (A-T) and the real Raw Data EU / Monthly file target
-  columns (confirmed with Marcia's actual screenshots) are mapped 1:1 in
-  the script's header comment. Only columns with a genuine Debits source
-  are populated (Month, Country, Customer, Onboard Date, Payment days,
-  DSO, and the 7 EUR/"Live" metrics) - TDSO, TDSO Gap, the %-columns, and
-  the local-currency columns are intentionally left untouched since they
-  are not sourced from Debits.
-- The Debits workbook's data sheet is confirmed as `VW_AMKAD_Source_Debits`
-  and is now referenced by name directly.
-- Confirmed DSO is **not** sourced from Debits at all: RawData's own DSO
-  column is a formula (`Total AR / Gross Sales * VLOOKUP(Month, CD3Mth, 3, 0)`)
-  calculated from that table's own columns. DSO has been removed from this
-  query's mapping accordingly. Still open: which exact RawData columns are
-  the plain `Total AR`/`Gross Sales` the formula reads - since the formula
-  only works within one table, those may be the real manual-paste target
-  rather than the "(Live)" columns this query currently targets. Confirmed
-  separately that the workbook has zero existing Power Query connections.
-- Raw Data EU appears to mix manually-formatted/formula columns (TDSO Gap,
-  %-columns) with columns that would come from this query. Since Power
-  Query owns every column of whatever table it's loaded into, load this
-  query's output to a separate staging table (e.g. "Debits Live Feed")
-  rather than directly overwriting Raw Data EU, and have Raw Data EU's
-  EUR/"Live" columns reference the staging table by formula (or confirm
-  with Marcia/IT that Raw Data EU can be restructured to be fully
-  query-owned instead).
+Priority 1 is now three pieces working together
+(`power_query/01_debits_to_raw_data_eu.m` +
+`office_scripts/AppendCurrentMonthToRawData.ts` +
+`power_automate/monthly_rollforward_flow.md`), built around how Marcia
+actually keeps the files:
+
+- **Each monthly workbook holds the full 2023 -> current history**, carried
+  forward every time the file is duplicated for a new month. The history is
+  already inside the file, so nothing has to rebuild it and the old Debits
+  source files are never needed - only the current month's Debits file has
+  to exist.
+- **The query pulls the current month only** (parameter
+  `ReportMonth_FolderName`, set by the flow), into a staging table
+  `Staging_CurrentMonth`. It does not recurse history and does not overwrite
+  RawData.
+- **The Office Script appends the staging rows to the bottom of RawData as
+  values**, so they become permanent history the next duplicate carries
+  forward. It is re-run safe (skips a month already present) and re-asserts
+  the RawData formula columns (DSO, TDSO Gap, %) onto the new rows so they
+  calculate.
+- **The Power Automate flow** duplicates last month's file into the new
+  month's folder, sets the month parameter, refreshes, and runs the append -
+  automating Stages 1 and 3 in one pass.
+
+Confirmed facts baked into these files:
+
+- Debits sheet name is `VW_AMKAD_Source_Debits`, referenced by name.
+- Debits columns A-T are known; only Month/Country/Customer/Onboard Date/
+  Payment days and the 7 EUR ("Live") metrics are used. Local-currency
+  columns (N-T) are ignored.
+- DSO is a RawData formula
+  (`Total AR / Gross Sales * VLOOKUP(Month, CD3Mth, 3, 0)`), not a Debits
+  value, so DSO is not written by either the query or the script - it
+  auto-fills as a calculated column on the appended rows.
+- The workbook currently has zero Power Query connections, so there is
+  nothing existing to conflict with when adding `Debits_CurrentMonth`.
+
+Remaining setup to confirm in the workbook before first automated run:
+- Exact RawData table name and the exact header strings for the Live
+  columns - fix `RAWDATA_TABLE` / `COLUMN_MAP` in
+  `AppendCurrentMonthToRawData.ts` if any differ.
+- Whether the Excel Online connector can set the `ReportMonth_FolderName`
+  Power Query parameter directly; if not, store the month in a named cell
+  the query reads and have the flow write that cell (noted in the flow doc).
 
 `02_remove_amazon.m`, `03_convert_negative_payments.m`, and
 `04_brm_integration.m` (Priorities 2, 3, 6) are still built against assumed
