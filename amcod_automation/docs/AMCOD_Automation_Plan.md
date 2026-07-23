@@ -81,6 +81,14 @@ against the real structure:
   are not sourced from Debits.
 - The Debits workbook's data sheet is confirmed as `VW_AMKAD_Source_Debits`
   and is now referenced by name directly.
+- Confirmed DSO is **not** sourced from Debits at all: RawData's own DSO
+  column is a formula (`Total AR / Gross Sales * VLOOKUP(Month, CD3Mth, 3, 0)`)
+  calculated from that table's own columns. DSO has been removed from this
+  query's mapping accordingly. Still open: which exact RawData columns are
+  the plain `Total AR`/`Gross Sales` the formula reads - since the formula
+  only works within one table, those may be the real manual-paste target
+  rather than the "(Live)" columns this query currently targets. Confirmed
+  separately that the workbook has zero existing Power Query connections.
 - Raw Data EU appears to mix manually-formatted/formula columns (TDSO Gap,
   %-columns) with columns that would come from this query. Since Power
   Query owns every column of whatever table it's loaded into, load this

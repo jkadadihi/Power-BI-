@@ -43,13 +43,32 @@
 // K-O columns are intentionally left untouched - they are not sourced from
 // Debits, so nothing is pasted into them.
 //
-// TARGET (Raw Data EU / Monthly file) MAPPING:
+// CONFIRMED: DSO is NOT sourced from Debits. The RawData table's own DSO
+// column is a formula:
+//   =IFERROR(SUM([@[Total AR]]/[@[Gross Sales]]*(VLOOKUP([@Month],CD3Mth,3,0))),0)
+// - calculated locally from that table's own "Total AR"/"Gross Sales"
+// columns (via same-row structured references, which only work within one
+// table) times a lookup factor from a separate "CD3Mth" table. Debits'
+// own DSO column (Debits F) is therefore NOT mapped anywhere below.
+//
+// OPEN QUESTION before this query can be pointed at the real target: which
+// exact RawData columns are the plain "Total AR" and "Gross Sales" the DSO
+// formula reads (no €, no "Live" tag)? Because that formula only works
+// within a single table, those columns must live inside the SAME table as
+// the DSO formula - meaning THOSE, not the "(Live)" columns below, may be
+// the real manual-paste target Marcia fills in today. Confirmed separately
+// that this workbook currently has zero Power Query connections (Queries
+// [0] in the Power Query editor), so there's nothing existing to conflict
+// with - but whichever columns feed DSO must stay inside the RawData
+// table for `[@[Total AR]]` etc. to keep resolving after a refresh.
+//
+// TARGET (Raw Data EU / Monthly file) MAPPING - EUR/"Live" columns only,
+// pending the open question above:
 //   A Month              <- Debits A Month
 //   B Country             <- Debits B Country
 //   C Customer            <- Debits C Customer
 //   D Onboard Date        <- Debits D Go Live Customer
 //   E Payment (days)      <- Debits E Payment Term (days)
-//   G DSO                 <- Debits F DSO
 //   P Total AR (Live)     <- Debits H Total AR €
 //   Q Overdue (Live)      <- Debits I Overdue €
 //   R >60 days (Live)     <- Debits J >60 days €
@@ -59,11 +78,10 @@
 //   AB Total Payments € (Live) <- Debits M Total Payments €
 //
 // Load this query's output to a staging table (e.g. "Debits Live Feed")
-// next to Raw Data EU rather than directly overwriting Raw Data EU itself,
-// if Raw Data EU already has manual formula columns (TDSO Gap, %, local
-// currency, etc.) mixed in - Power Query owns every column of whatever
-// table it's loaded into, so a table with hand-built formula columns next
-// to query-fed columns can't be the direct load target of this query.
+// next to RawData rather than directly overwriting RawData itself -
+// RawData mixes formula columns (DSO, TDSO Gap, %) with data columns, and
+// Power Query owns every column of whatever table it's loaded into, so it
+// can't be pointed at RawData directly without breaking those formulas.
 //
 // PARAMETERS (set these once, Query Editor > Manage Parameters):
 //   SharePointSite_Url        e.g. "https://dhl.sharepoint.com/sites/AMROFinance"
@@ -91,7 +109,7 @@ let
     SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Kind] = "Sheet" and [Item] = "VW_AMKAD_Source_Debits"),
 
     ExpandRows = Table.ExpandTableColumn(SourceSheetOnly, "Data", {
-        "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)", "DSO",
+        "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
         "Gross Sales €", "Total AR €", "Overdue €", ">60 days €", ">90 days €",
         "Total UAC €", "Total Payments €"
     }),
@@ -100,8 +118,10 @@ let
 
     // Map straight through to the Raw Data EU column names confirmed above.
     // Local-currency columns (N-T in Debits) are deliberately not selected.
+    // DSO is deliberately excluded - it's a local formula in RawData, not
+    // sourced from Debits (see comment block above).
     Selected = Table.SelectColumns(RemoveHeaderNoise, {
-        "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)", "DSO",
+        "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
         "Total AR €", "Overdue €", ">60 days €", "Gross Sales €", ">90 days €",
         "Total UAC €", "Total Payments €"
     }),
@@ -112,7 +132,6 @@ let
         {"Customer", "Customer"},
         {"Go Live Customer", "Onboard Date"},
         {"Payment Term (days)", "Payment (days)"},
-        {"DSO", "DSO"},
         {"Total AR €", "Total AR (Live)"},
         {"Overdue €", "Overdue (Live)"},
         {">60 days €", ">60 days (Live)"},
@@ -126,7 +145,6 @@ let
         {"Month", type date},
         {"Country", type text}, {"Customer", type text},
         {"Onboard Date", type text}, {"Payment (days)", Int64.Type},
-        {"DSO", type number},
         {"Total AR (Live)", Currency.Type}, {"Overdue (Live)", Currency.Type},
         {">60 days (Live)", Currency.Type}, {"Gross Sales (Live)", Currency.Type},
         {">90 days (Live)", Currency.Type},
