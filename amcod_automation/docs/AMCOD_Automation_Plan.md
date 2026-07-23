@@ -61,23 +61,41 @@ Priority 6 (BRM) is Power Query again, since it is the same shape of problem
 as Priority 1: a structured export, copied by hand, into a fixed set of
 report cells.
 
-## How to adopt these without real column names yet
+## How to adopt these
 
-None of these scripts were built against Marcia's actual Debits/SIP/BRM
-files (they weren't available in this task), so every script:
+`power_query/01_debits_to_raw_data_eu.m` (Priority 1) has been validated
+against the real structure:
 
-- takes the source file/folder path as a Power Query parameter you set once
-  in Power BI / Excel's Query Editor
-- documents its **expected column names** in a comment block at the top
-- is written so that a column rename in Table.RenameColumns is the only
-  edit needed if Marcia's actual headers differ (same pattern already used
-  in `power_query/01_load_ar_performance.m` for the AMKAD report in this
-  repo)
+- Source is `AMKAD_KPI_ViewRefreshable_Debits Only...` on SharePoint, inside
+  a dated month folder (`.../2026 AMKAD Summary/Qtr 2/June 2026/`) that gets
+  recreated every month per Stage 1. The query points at the stable parent
+  folder and lets `SharePoint.Files` recurse through every Qtr/Month
+  subfolder, so a new month needs zero query edits - only the year segment
+  in `DebitsRoot_RelativePath` needs updating, once a year.
+- Real Debits columns (A-T) and the real Raw Data EU / Monthly file target
+  columns (confirmed with Marcia's actual screenshots) are mapped 1:1 in
+  the script's header comment. Only columns with a genuine Debits source
+  are populated (Month, Country, Customer, Onboard Date, Payment days,
+  DSO, and the 7 EUR/"Live" metrics) - TDSO, TDSO Gap, the %-columns, and
+  the local-currency columns are intentionally left untouched since they
+  are not sourced from Debits.
+- One remaining unknown: the exact sheet name inside the Debits workbook
+  (the script currently just takes the first worksheet). Confirm and set
+  explicitly once known.
+- Raw Data EU appears to mix manually-formatted/formula columns (TDSO Gap,
+  %-columns) with columns that would come from this query. Since Power
+  Query owns every column of whatever table it's loaded into, load this
+  query's output to a separate staging table (e.g. "Debits Live Feed")
+  rather than directly overwriting Raw Data EU, and have Raw Data EU's
+  EUR/"Live" columns reference the staging table by formula (or confirm
+  with Marcia/IT that Raw Data EU can be restructured to be fully
+  query-owned instead).
 
-Before rolling out, walk each script against one real month's Debits file,
-BRM export, and Monthly Workbook side-by-side with Marcia, and fix up the
-column-name table at the top of each script. That's a couple of hours of
-validation, not a rebuild.
+`02_remove_amazon.m`, `03_convert_negative_payments.m`, and
+`04_brm_integration.m` (Priorities 2, 3, 6) are still built against assumed
+column names - validate those the same way (walk the script against a real
+BRM export and a real Raw Data No Amazon tab with Marcia) before relying on
+them.
 
 ## Phased rollout
 
