@@ -27,6 +27,8 @@
 //     GPMR, Monthly Performance Report, the .zip) are excluded by filtering
 //     on filename containing "Debits".
 //
+// CONFIRMED SHEET NAME (inside the Debits workbook): VW_AMKAD_Source_Debits
+//
 // CONFIRMED DEBITS COLUMNS (workbook: "AMKAD_KPI_ViewRefreshable_Debits Only"):
 //   A Month | B Country | C Customer | D Go Live Customer
 //   E Payment Term (days) | F DSO
@@ -86,12 +88,9 @@ let
 
     AddData = Table.AddColumn(AddMonthRaw, "Data", each Excel.Workbook([Content], null, true)),
     ExpandSheets = Table.ExpandTableColumn(AddData, "Data", {"Item", "Kind", "Data"}, {"Item", "Kind", "Data"}),
-    // Adjust [Item] below to the actual sheet name inside the Debits
-    // workbook once confirmed - "FirstSheet" placeholder picks the first
-    // worksheet, which is fine as long as the data sheet is first.
-    FirstSheetOnly = Table.FirstN(Table.SelectRows(ExpandSheets, each [Kind] = "Sheet"), 1),
+    SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Kind] = "Sheet" and [Item] = "VW_AMKAD_Source_Debits"),
 
-    ExpandRows = Table.ExpandTableColumn(FirstSheetOnly, "Data", {
+    ExpandRows = Table.ExpandTableColumn(SourceSheetOnly, "Data", {
         "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)", "DSO",
         "Gross Sales €", "Total AR €", "Overdue €", ">60 days €", ">90 days €",
         "Total UAC €", "Total Payments €"

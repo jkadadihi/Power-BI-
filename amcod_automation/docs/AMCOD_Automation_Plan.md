@@ -79,9 +79,8 @@ against the real structure:
   DSO, and the 7 EUR/"Live" metrics) - TDSO, TDSO Gap, the %-columns, and
   the local-currency columns are intentionally left untouched since they
   are not sourced from Debits.
-- One remaining unknown: the exact sheet name inside the Debits workbook
-  (the script currently just takes the first worksheet). Confirm and set
-  explicitly once known.
+- The Debits workbook's data sheet is confirmed as `VW_AMKAD_Source_Debits`
+  and is now referenced by name directly.
 - Raw Data EU appears to mix manually-formatted/formula columns (TDSO Gap,
   %-columns) with columns that would come from this query. Since Power
   Query owns every column of whatever table it's loaded into, load this
