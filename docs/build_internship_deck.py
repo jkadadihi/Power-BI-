@@ -194,13 +194,13 @@ tb, tf = textbox(s, Inches(0.7), Inches(0.9), Inches(11.9), Inches(1.0))
 para(tf, "What the work added up to", size=29, color=INK, bold=True, first=True)
 rect(s, Inches(0.7), Inches(1.75), Inches(11.9), Pt(1.4), LINE)
 stat_tile(s, Inches(0.7), Inches(2.15), Inches(3.75), Inches(1.7),
-          "~275 hrs", "of team time given back each year, and likely more. A conservative estimate.", vsize=32)
+          "~425 hrs", "of team time given back each year, up to ~445. A conservative estimate.", vsize=32)
 stat_tile(s, Inches(4.79), Inches(2.15), Inches(3.75), Inches(1.7),
-          "6 / week", "statements now generated and emailed automatically (Arrow ×5, Baker ×1)", vsize=32)
+          "12 / week", "statements now generated and emailed automatically each week", vsize=32)
 stat_tile(s, Inches(8.88), Inches(2.15), Inches(3.72), Inches(1.7),
           "1 new", "shared AR reporting view the team did not have in one place before", vsize=32)
 tb, tf = textbox(s, Inches(0.7), Inches(4.2), Inches(11.9), Inches(1.0))
-para(tf, "That is roughly 7 to 11 full work-weeks a year that collectors can spend on collections instead of manual reporting.",
+para(tf, "That is roughly 11 full work-weeks a year that collectors can spend on collections instead of manual reporting.",
      size=17, color=RED_DARK, bold=True, first=True)
 bullets(s, [
     "Helped bring AR visibility together in one place: aging, UAC, trends, and what-if scenarios.",
@@ -414,7 +414,7 @@ s = add_slide()
 slide_title(s, "Pillar 3 · SOA Automation",
             "Recurring statements generated and delivered without a collector touching them")
 bullets(s, [
-    "Automated 6 recurring weekly Statements of Account: Arrow Electronics across 5 countries, and Baker Hughes.",
+    "Automated 12 recurring weekly Statements of Account across multiple customers and countries.",
     "Generated from START templates with the right account filters, then emailed automatically with attachments and internal stakeholders CC'd.",
     "Built as a configurable framework, so new customers can be added by updating configuration (accounts, recipients, schedule, template) rather than rebuilding it.",
     "Designed so collectors only step in for exceptions, and can spend more of their time on collections.",
@@ -422,8 +422,8 @@ bullets(s, [
 box = rrect(s, Inches(0.7), Inches(5.95), Inches(11.9), Inches(0.85), RGBColor(0xFC, 0xEF, 0xEF),
             line=True, radius=0.12)
 tb, tf = textbox(s, Inches(1.0), Inches(6.05), Inches(11.3), Inches(0.65), valign=MSO_ANCHOR.MIDDLE)
-para(tf, "To be clear on scope: two customers are live today, six SOAs a week, on a framework built so more "
-         "can be added over time. The reusable engine is the part that is done.",
+para(tf, "12 SOAs a week are live today, on a framework built so more can be added over time. "
+         "The reusable engine is the part that is done.",
          size=13, color=RED_DARK, bold=True, first=True)
 footer(s)
 
@@ -438,15 +438,15 @@ slide_title(s, "The Impact", "Time saved, with the math shown, kept deliberately
 cs = rrect(s, Inches(0.7), Inches(2.28), Inches(11.9), Inches(0.5), GOODBG, line=True, radius=0.16)
 tb, tf = textbox(s, Inches(1.0), Inches(2.28), Inches(11.3), Inches(0.5), valign=MSO_ANCHOR.MIDDLE)
 para(tf, "Live today:   ✓ Dashboard in production    ✓ Daily pipeline running    "
-         "✓ 6 weekly SOAs automated    ✓ Framework ready for more customers",
+         "✓ 12 weekly SOAs automated    ✓ Framework ready for more customers",
      size=12.5, color=RGBColor(0x1F, 0x5C, 0x2E), bold=True, first=True)
 
 rows = [
     ("", "Per week", "Per month", "Per year", False),
     ("Daily data file  (15 min × 5 days)", "1.25 hrs", "~5.4 hrs", "~63 hrs", False),
     ("Daily report tab  (15–20 min × 5 days)", "1.25–1.7 hrs", "~5–7 hrs", "~63–83 hrs", False),
-    ("SOA automation  (6 SOAs × 30–60 min)", "3–6 hrs", "13–26 hrs", "150–300 hrs", False),
-    ("Combined", "~5.5–9 hrs", "~24–38 hrs", "~275–445 hrs", True),
+    ("SOA automation  (12 SOAs × 30 min)", "6 hrs", "~26 hrs", "~300 hrs", False),
+    ("Combined", "~8.5–9 hrs", "~36–38 hrs", "~425–445 hrs", True),
 ]
 tw = Inches(11.9)
 c0, c1, c2, c3 = Inches(5.0), Inches(2.3), Inches(2.3), Inches(2.3)
@@ -479,10 +479,10 @@ for i, (label, a, b, c, total) in enumerate(rows):
             cx += cw
 
 tb, tf = textbox(s, Inches(0.7), Inches(5.95), Inches(11.9), Inches(1.2))
-para(tf, "That comes to roughly 7 to 11 full work-weeks of time given back to the team each year.",
+para(tf, "That comes to roughly 11 full work-weeks of time given back to the team each year.",
      size=15.5, color=RED_DARK, bold=True, first=True, space_after=7)
-para(tf, "The assumptions are kept conservative on purpose: 5 business days a week, SOAs at 30 to 60 minutes each, "
-         "6 a week. The figures leave out error-correction, rework, and analysis time, so the real number is likely higher.",
+para(tf, "The assumptions are kept conservative on purpose: 5 business days a week, 12 SOAs a week at about 30 minutes each. "
+         "The figures leave out error-correction, rework, and analysis time, so the real number is likely higher.",
      size=11, color=MUTED, italic=True)
 footer(s)
 
