@@ -73,23 +73,33 @@ let
     // [Kind]="Sheet" or it finds nothing (this caused an early 0-rows bug).
     SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Item] = "VW_AMKAD_Source_Debits"),
 
+    // BOTH currency sets: Debits G-M are EUR (-> RawData's "€ (Live)" columns)
+    // and Debits N-T are the same metrics in local currency (-> RawData's bare
+    // columns). Pulling only the EUR set left every local-currency column in
+    // RawData blank, which is what they are for.
     ExpandRows = Table.ExpandTableColumn(SourceSheetOnly, "Data", {
         "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
         "Gross Sales €", "Total AR €", "Overdue €", ">60 days €", ">90 days €",
-        "Total UAC €", "Total Payments €"
+        "Total UAC €", "Total Payments €",
+        "Gross Sales", "Total AR", "Overdue", ">60 days", ">90 days",
+        "Total UAC", "Total Payments"
     }),
 
     RemoveHeaderNoise = Table.SelectRows(ExpandRows, each [Country] <> null and [Country] <> "Country"),
 
-    // Live/EUR columns only. DSO and local-currency columns are excluded.
+    // DSO is excluded - it is a formula in RawData, not a Debits value.
     Selected = Table.SelectColumns(RemoveHeaderNoise, {
         "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
         "Total AR €", "Overdue €", ">60 days €", "Gross Sales €", ">90 days €",
-        "Total UAC €", "Total Payments €"
+        "Total UAC €", "Total Payments €",
+        "Total AR", "Overdue", ">60 days", "Gross Sales", ">90 days",
+        "Total UAC", "Total Payments"
     }),
 
     // Rename to RawData's EXACT header strings so the append script maps them
-    // 1:1. "Payment Term (days)" already matches, so it is not renamed.
+    // 1:1. "Payment Term (days)" and the local-currency columns already match
+    // (the script's normalized matching absorbs the ">60" vs "> 60" spacing),
+    // so only the EUR columns need the "€ (Live)" suffix.
     Renamed = Table.RenameColumns(Selected, {
         {"Go Live Customer", "Onboard Dt"},
         {"Total AR €", "Total AR € (Live)"},
@@ -108,7 +118,11 @@ let
         {"Total AR € (Live)", Currency.Type}, {"Overdue € (Live)", Currency.Type},
         {"> 60 days € (Live)", Currency.Type}, {"Gross Sales € (Live)", Currency.Type},
         {"> 90 days € (Live)", Currency.Type},
-        {"Total UAC € (Live)", Currency.Type}, {"Total Payments € (Live)", Currency.Type}
+        {"Total UAC € (Live)", Currency.Type}, {"Total Payments € (Live)", Currency.Type},
+        {"Total AR", Currency.Type}, {"Overdue", Currency.Type},
+        {">60 days", Currency.Type}, {"Gross Sales", Currency.Type},
+        {">90 days", Currency.Type},
+        {"Total UAC", Currency.Type}, {"Total Payments", Currency.Type}
     }),
 
     Sorted = Table.Sort(Typed, {{"Country", Order.Ascending}, {"Customer", Order.Ascending}})
