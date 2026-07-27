@@ -73,11 +73,20 @@ let
     // [Kind]="Sheet" or it finds nothing (this caused an early 0-rows bug).
     SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Item] = "VW_AMKAD_Source_Debits"),
 
+    // Debits spells the local-currency column "overdue" (lowercase) while the
+    // EUR one is "Overdue €". Power Query column names are case-sensitive, so
+    // asking for "Overdue" silently yields a column of nulls. Normalize first,
+    // tolerating either spelling.
+    FixOverdueCase = Table.TransformColumns(SourceSheetOnly, {{"Data", each
+        if List.Contains(Table.ColumnNames(_), "overdue")
+        then Table.RenameColumns(_, {{"overdue", "Overdue"}})
+        else _}}),
+
     // BOTH currency sets: Debits G-M are EUR (-> RawData's "€ (Live)" columns)
     // and Debits N-T are the same metrics in local currency (-> RawData's bare
     // columns). Pulling only the EUR set left every local-currency column in
     // RawData blank, which is what they are for.
-    ExpandRows = Table.ExpandTableColumn(SourceSheetOnly, "Data", {
+    ExpandRows = Table.ExpandTableColumn(FixOverdueCase, "Data", {
         "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
         "Gross Sales €", "Total AR €", "Overdue €", ">60 days €", ">90 days €",
         "Total UAC €", "Total Payments €",
