@@ -60,7 +60,7 @@ const sourceWorkbookMock = {
 
 /* ---------- DESTINATION TABLE MOCK (Raw Data EUR headers, A:AD) ---------- */
 const destHeaders = [
-  "Date","Country","Customer","Go Live","Payment Term (days)",
+  "Month","Country","Customer","Go Live","Payment Term (days)",
   "TDSO","DSO","TDSO Gap","> 60 days (%)","> 90 days (%)",
   "Total AR € ()","Gross Sales € ()","Overdue € ()","> 60 days € ()","> 90 days € ()",
   "Bad Debt Provision € ()",

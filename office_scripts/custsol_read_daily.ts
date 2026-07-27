@@ -88,9 +88,36 @@ function main(workbook: ExcelScript.Workbook): string {
     });
   }
 
+  // Derive the report's own date from the data (all rows share one Report Date),
+  // so the output file can be named for the date of the data it holds rather
+  // than the date the flow happened to run. Excel returns a date cell as a
+  // serial number; convert it to labels Power Automate can drop straight into
+  // the file name and month folder.
+  const MONTHS = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  let reportDateLabel: string | null = null;   // e.g. "July 15 2026"
+  let reportMonthLabel: string | null = null;  // e.g. "July 2026"
+  if (rows.length > 0) {
+    const raw = rows[0].reportDate;
+    let d: Date | null = null;
+    if (typeof raw === "number") {
+      // Excel serial (1900 date system): serial 25569 = 1970-01-01.
+      d = new Date(Math.round((raw - 25569) * 86400 * 1000));
+    } else if (typeof raw === "string" && raw !== "") {
+      const parsed = new Date(raw);
+      if (!isNaN(parsed.getTime())) d = parsed;
+    }
+    if (d !== null) {
+      reportDateLabel = MONTHS[d.getUTCMonth()] + " " + d.getUTCDate() + " " + d.getUTCFullYear();
+      reportMonthLabel = MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear();
+    }
+  }
+
   return JSON.stringify({
     rows: rows,
     totalRows: rows.length,
-    missingEuroRows: missingEuroRows
+    missingEuroRows: missingEuroRows,
+    reportDateLabel: reportDateLabel,
+    reportMonthLabel: reportMonthLabel
   });
 }
