@@ -1,62 +1,62 @@
 /**
  * AppendCurrentMonthToRawData.ts (Office Script for Excel)
  *
- * DESIGN B, step 3: takes the current month's rows produced by the Power
- * Query "Debits_CurrentMonth" (loaded to a staging table) and appends them
- * to the bottom of the RawData table AS VALUES, so they become permanent
- * history that the next month's duplicated file carries forward. This is the
- * automated version of Marcia's Stage 3 "scroll to the bottom and paste the
- * new month's block."
+ * Appends the current month's rows - produced by the Power Query
+ * "Debits_CurrentMonth" and loaded to the staging table - to the bottom of
+ * the RawData table AS VALUES, so they become permanent history that next
+ * month's file carries forward. This is the automated version of Marcia's
+ * Stage 3 "scroll to the bottom and paste the new month's block."
  *
- * Why values (not a live query load): RawData mixes formula columns (DSO,
- * TDSO Gap, %) with data columns, and history must survive being duplicated
- * into next month's file without re-reading old Debits files. Writing the
- * month's data as values into the RawData table both preserves it and lets
- * the table's calculated columns (DSO etc.) auto-fill for the new rows.
+ * WHY VALUES: RawData mixes formula columns (DSO, TDSO, TDSO Gap, the %
+ * columns) with data columns, so Power Query cannot load into it directly -
+ * it would own and destroy every column. The query lands in staging; this
+ * script carries the rows across and leaves the formula columns alone.
  *
- * WHAT IT DOES
- *   1. Reads the staging table (STAGING_TABLE).
- *   2. Guards against double-appending the same month (re-run safe).
- *   3. Adds the rows to the RawData table, writing only the mapped data
- *      columns; calculated columns are left for Excel to auto-fill.
+ * HEADER MATCHING: staging and RawData spell some headers differently
+ * ("Onboard Date" vs "Onboard Dt", "Gross Sales (Live)" vs
+ * "Gross Sales € (Live)", ">60 days" vs "> 60 days"). Exact-text matching
+ * silently dropped those columns, so matching here is normalized - spaces,
+ * "€" and case are ignored - plus an explicit alias list for headers whose
+ * words genuinely differ. Every match and non-match is logged so a future
+ * mismatch is visible instead of silent.
  *
- * SETUP
- *   - STAGING_TABLE / RAWDATA_TABLE: set to the actual table names.
- *   - COLUMN_MAP: left = staging table header, right = RawData header. The
- *     RawData header strings must match EXACTLY (including the "€" and
- *     "(Live)" text). Fix any that differ in your workbook - that's the only
- *     edit this script normally needs.
- *   - CALCULATED_COLUMNS: RawData headers that are formulas (DSO, TDSO Gap,
- *     the % columns). The script never writes these; it re-asserts their
- *     formula onto the new rows so they calculate instead of coming through
- *     blank.
+ * RE-RUN SAFE: if the month is already in RawData the script skips.
  */
 
 const STAGING_TABLE = "Staging_CurrentMonth";
 const RAWDATA_TABLE = "RawData";
 
-// staging header  ->  RawData header (edit the right-hand strings to match)
-const COLUMN_MAP: { from: string; to: string }[] = [
-  { from: "Month", to: "Month" },
-  { from: "Country", to: "Country" },
-  { from: "Customer", to: "Customer" },
-  { from: "Onboard Date", to: "Onboard Date" },
-  { from: "Payment (days)", to: "Payment (days)" },
-  { from: "Total AR € (Live)", to: "Total AR € (Live)" },
-  { from: "Overdue € (Live)", to: "Overdue € (Live)" },
-  { from: ">60 days € (Live)", to: ">60 days € (Live)" },
-  { from: "Gross Sales (Live)", to: "Gross Sales (Live)" },
-  { from: ">90 days (Live)", to: ">90 days (Live)" },
-  { from: "Total UAC € (Live)", to: "Total UAC € (Live)" },
-  { from: "Total Payments € (Live)", to: "Total Payments € (Live)" },
+// RawData columns that are formulas - never written with data. Their formula
+// is copied down from the row above onto the appended rows.
+const CALCULATED_COLUMNS = ["TDSO", "DSO", "TDSO Gap", "> 60 days (%)", "> 90 days (%)"];
+
+// Headers whose words differ between the two tables and so cannot be matched
+// by normalization alone. Left = staging, right = RawData.
+const HEADER_ALIASES: { staging: string; rawData: string }[] = [
+  { staging: "Onboard Date", rawData: "Onboard Dt" },
+  { staging: "Payment (days)", rawData: "Payment Term (days)" },
 ];
 
-// RawData formula columns - never written, formula re-asserted on new rows.
-const CALCULATED_COLUMNS = ["DSO", "TDSO", "TDSO Gap", ">60 days (%)", ">90 days (%)"];
+// Explicit formats, used when RawData has no existing row to copy from.
+const DATE_COLUMNS = ["Month"];
+const PERCENT_COLUMNS = ["> 60 days (%)", "> 90 days (%)"];
+const TEXT_COLUMNS = ["Country", "Customer", "Onboard Dt"];
+const INTEGER_COLUMNS = ["Payment Term (days)", "TDSO", "DSO", "TDSO Gap"];
+const DATE_FORMAT = "m/d/yyyy";
+const PERCENT_FORMAT = "0.0%";
+const INTEGER_FORMAT = "0";
+const TEXT_FORMAT = "@";
+const CURRENCY_FORMAT = "#,##0";
 
 function main(workbook: ExcelScript.Workbook): { appendedRows: number; month: string } {
-  const staging = getTable(workbook, STAGING_TABLE);
-  const rawData = getTable(workbook, RAWDATA_TABLE);
+  const staging = workbook.getTable(STAGING_TABLE);
+  if (!staging) {
+    throw new Error(`Table "${STAGING_TABLE}" not found.`);
+  }
+  const rawData = workbook.getTable(RAWDATA_TABLE);
+  if (!rawData) {
+    throw new Error(`Table "${RAWDATA_TABLE}" not found.`);
+  }
 
   const stagingHeaders = staging.getHeaderRowRange().getValues()[0].map((h) => String(h));
   const stagingBody = staging.getRangeBetweenHeaderAndTotal().getValues();
@@ -67,76 +67,88 @@ function main(workbook: ExcelScript.Workbook): { appendedRows: number; month: st
 
   const rawHeaders = rawData.getHeaderRowRange().getValues()[0].map((h) => String(h));
 
-  // Resolve the "Month" column so we can dedupe and report.
-  const stagingMonthIdx = requireHeader(stagingHeaders, "Month", STAGING_TABLE);
-  const rawMonthIdx = requireHeader(rawHeaders, mapTo("Month"), RAWDATA_TABLE);
+  // staging column index -> RawData column index
+  const columnMap = buildColumnMap(stagingHeaders, rawHeaders);
 
-  // The month being appended (all staging rows share one month).
+  const stagingMonthIdx = stagingHeaders.indexOf("Month");
+  const rawMonthIdx = rawHeaders.indexOf("Month");
+  if (stagingMonthIdx === -1 || rawMonthIdx === -1) {
+    throw new Error('Column "Month" not found in one of the tables.');
+  }
+
   const monthValue = stagingBody[0][stagingMonthIdx];
   const monthLabel = String(monthValue);
 
-  // Guard: if RawData already contains this month, do not append again.
   const rawBody = rawData.getRangeBetweenHeaderAndTotal().getValues();
-  const alreadyPresent = rawBody.some((r) => sameMonth(r[rawMonthIdx], monthValue));
-  if (alreadyPresent) {
-    console.log(`Month ${monthLabel} already present in ${RAWDATA_TABLE} - skipping append (re-run safe).`);
+  // An empty table still reads back as a single blank row - treat that as empty.
+  const hasExistingRows =
+    rawBody.length > 0 && rawBody.some((r) => String(r[rawMonthIdx]).trim() !== "");
+
+  if (hasExistingRows && rawBody.some((r) => sameMonth(r[rawMonthIdx], monthValue))) {
+    console.log(`Month ${monthLabel} already present in ${RAWDATA_TABLE} - skipping (re-run safe).`);
     return { appendedRows: 0, month: monthLabel };
   }
 
-  // Build the rows to add, sized to the full RawData width, mapped columns
-  // filled and everything else left null for Excel to fill / calc.
   const width = rawHeaders.length;
   const newRows: (string | number | boolean | null)[][] = stagingBody.map((srcRow) => {
     const out: (string | number | boolean | null)[] = new Array(width).fill(null);
-    for (const { from, to } of COLUMN_MAP) {
-      const sIdx = stagingHeaders.indexOf(from);
-      const rIdx = rawHeaders.indexOf(to);
-      if (sIdx === -1) {
-        throw new Error(`Staging column "${from}" not found in ${STAGING_TABLE}.`);
+    columnMap.forEach((rIdx, sIdx) => {
+      if (rIdx !== -1) {
+        out[rIdx] = srcRow[sIdx] as string | number | boolean | null;
       }
-      if (rIdx === -1) {
-        throw new Error(`RawData column "${to}" not found in ${RAWDATA_TABLE}. Fix COLUMN_MAP.`);
-      }
-      out[rIdx] = srcRow[sIdx] as string | number | boolean | null;
-    }
+    });
     return out;
   });
 
-  const firstNewRowIndex = rawBody.length; // 0-based within the table body
-  rawData.addRows(-1, newRows);
+  const firstNewRowIndex = hasExistingRows ? rawBody.length : 0;
+  if (hasExistingRows) {
+    rawData.addRows(-1, newRows);
+  } else {
+    // Reuse the existing blank row, then grow the table for the rest, so no
+    // stray empty row is left sitting above the data.
+    if (newRows.length > 1) {
+      rawData.addRows(-1, newRows.slice(1));
+    }
+    rawData.getRangeBetweenHeaderAndTotal().setValues(newRows);
+  }
 
-  // Re-assert calculated-column formulas onto the appended rows, in case
-  // addRows wrote nulls into them instead of auto-filling.
-  reassertFormulas(rawData, rawHeaders, firstNewRowIndex, newRows.length);
+  applyFormatsAndFormulas(rawData, rawHeaders, firstNewRowIndex, newRows.length);
 
   console.log(`Appended ${newRows.length} rows for ${monthLabel} to ${RAWDATA_TABLE}.`);
   return { appendedRows: newRows.length, month: monthLabel };
 }
 
-function getTable(workbook: ExcelScript.Workbook, name: string): ExcelScript.Table {
-  const t = workbook.getTable(name);
-  if (!t) {
-    throw new Error(`Table "${name}" not found. Check the table name.`);
-  }
-  return t;
+/**
+ * Normalizes a header for comparison: lowercase, no whitespace, no "€".
+ * Turns "> 60 days € (Live)" and ">60 days (Live)" into the same key.
+ */
+function normalizeHeader(header: string): string {
+  return header.toLowerCase().replace(/\s+/g, "").replace(/€/g, "");
 }
 
-function requireHeader(headers: string[], name: string, tableName: string): number {
-  const idx = headers.indexOf(name);
-  if (idx === -1) {
-    throw new Error(`Column "${name}" not found in ${tableName}.`);
-  }
-  return idx;
-}
+/**
+ * Maps each staging column index to a RawData column index (-1 if none),
+ * using the alias list first, then normalized matching. Logs the result of
+ * every column so mismatches are never silent.
+ */
+function buildColumnMap(stagingHeaders: string[], rawHeaders: string[]): number[] {
+  const normalizedRaw = rawHeaders.map(normalizeHeader);
 
-function mapTo(stagingHeader: string): string {
-  const entry = COLUMN_MAP.find((m) => m.from === stagingHeader);
-  return entry ? entry.to : stagingHeader;
+  return stagingHeaders.map((stagingHeader) => {
+    const alias = HEADER_ALIASES.find((a) => normalizeHeader(a.staging) === normalizeHeader(stagingHeader));
+    const targetKey = alias ? normalizeHeader(alias.rawData) : normalizeHeader(stagingHeader);
+    const rIdx = normalizedRaw.indexOf(targetKey);
+
+    if (rIdx === -1) {
+      console.log(`WARNING: staging column "${stagingHeader}" has no RawData match - it will be skipped.`);
+    } else if (rawHeaders[rIdx] !== stagingHeader) {
+      console.log(`Matched "${stagingHeader}" -> "${rawHeaders[rIdx]}"`);
+    }
+    return rIdx;
+  });
 }
 
 function sameMonth(a: string | number | boolean, b: string | number | boolean): boolean {
-  // Excel dates come through as serial numbers; compare loosely so a date
-  // and its string form still match.
   if (typeof a === "number" && typeof b === "number") {
     return Math.round(a) === Math.round(b);
   }
@@ -144,33 +156,69 @@ function sameMonth(a: string | number | boolean, b: string | number | boolean): 
 }
 
 /**
- * For each calculated column, copy the formula from an existing row (the row
- * just above the appended block) down onto the new rows, so DSO/TDSO/% fill
- * in rather than staying null.
+ * Copies number formats (and formulas, for calculated columns) from the row
+ * above onto the appended rows. Falls back to explicit formats when there is
+ * no row above, so dates don't render as raw serial numbers on a first load.
  */
-function reassertFormulas(
+function applyFormatsAndFormulas(
   table: ExcelScript.Table,
   rawHeaders: string[],
   firstNewRowIndex: number,
-  count: number
+  rowCount: number
 ) {
-  if (firstNewRowIndex === 0) {
-    // No prior row to copy a formula from - nothing to re-assert.
-    return;
-  }
   const bodyRange = table.getRangeBetweenHeaderAndTotal();
-  for (const colName of CALCULATED_COLUMNS) {
-    const cIdx = rawHeaders.indexOf(colName);
-    if (cIdx === -1) {
-      continue; // column not in this workbook - skip
+  const templateRowIndex = firstNewRowIndex - 1;
+  const missingFormulas: string[] = [];
+
+  for (let c = 0; c < rawHeaders.length; c++) {
+    const header = rawHeaders[c];
+    const isCalculated = CALCULATED_COLUMNS.indexOf(header) !== -1;
+
+    let numberFormat = "";
+    let formula = "";
+    if (templateRowIndex >= 0) {
+      const templateCell = bodyRange.getCell(templateRowIndex, c);
+      numberFormat = templateCell.getNumberFormat();
+      if (isCalculated) {
+        formula = templateCell.getFormula();
+      }
     }
-    const templateCell = bodyRange.getCell(firstNewRowIndex - 1, cIdx);
-    const formula = templateCell.getFormula();
-    if (!formula || formula[0] !== "=") {
-      continue; // not actually a formula column here
+    if (!numberFormat || numberFormat === "General") {
+      numberFormat = defaultFormatFor(header);
     }
-    for (let r = 0; r < count; r++) {
-      bodyRange.getCell(firstNewRowIndex + r, cIdx).setFormula(formula);
+    if (isCalculated && (!formula || formula[0] !== "=")) {
+      missingFormulas.push(header);
+    }
+
+    for (let r = 0; r < rowCount; r++) {
+      const cell = bodyRange.getCell(firstNewRowIndex + r, c);
+      cell.setNumberFormat(numberFormat);
+      if (isCalculated && formula && formula[0] === "=") {
+        cell.setFormula(formula);
+      }
     }
   }
+
+  if (missingFormulas.length > 0) {
+    console.log(
+      `WARNING: no prior row to copy formulas from, so these stayed blank: ${missingFormulas.join(", ")}. ` +
+        `Keep at least one earlier month in RawData, or fill these formulas down once by hand.`
+    );
+  }
+}
+
+function defaultFormatFor(header: string): string {
+  if (DATE_COLUMNS.indexOf(header) !== -1) {
+    return DATE_FORMAT;
+  }
+  if (PERCENT_COLUMNS.indexOf(header) !== -1) {
+    return PERCENT_FORMAT;
+  }
+  if (TEXT_COLUMNS.indexOf(header) !== -1) {
+    return TEXT_FORMAT;
+  }
+  if (INTEGER_COLUMNS.indexOf(header) !== -1) {
+    return INTEGER_FORMAT;
+  }
+  return CURRENCY_FORMAT;
 }

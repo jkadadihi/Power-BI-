@@ -29,18 +29,20 @@
 //   L Total UAC € | M Total Payments €
 //   N-T = same metrics in local currency (NOT used - Live/EUR only)
 //
-// TARGET (RawData) Live/EUR columns the append script writes into:
-//   Month              <- Debits A Month
-//   Country            <- Debits B Country
-//   Customer           <- Debits C Customer
-//   Onboard Date       <- Debits D Go Live Customer
-//   Payment (days)     <- Debits E Payment Term (days)
-//   Total AR € (Live)      <- Debits H Total AR €
-//   Overdue € (Live)       <- Debits I Overdue €
-//   >60 days € (Live)      <- Debits J >60 days €
-//   Gross Sales (Live)     <- Debits G Gross Sales €
-//   >90 days (Live)        <- Debits K >90 days €
-//   Total UAC € (Live)     <- Debits L Total UAC €
+// TARGET (RawData) Live/EUR columns the append script writes into. These are
+// RawData's EXACT header strings - note "Onboard Dt" (not "Onboard Date") and
+// the space after ">" in the day-bucket columns:
+//   Month                   <- Debits A Month
+//   Country                 <- Debits B Country
+//   Customer                <- Debits C Customer
+//   Onboard Dt              <- Debits D Go Live Customer
+//   Payment Term (days)     <- Debits E Payment Term (days)
+//   Total AR € (Live)       <- Debits H Total AR €
+//   Overdue € (Live)        <- Debits I Overdue €
+//   > 60 days € (Live)      <- Debits J >60 days €
+//   Gross Sales € (Live)    <- Debits G Gross Sales €
+//   > 90 days € (Live)      <- Debits K >90 days €
+//   Total UAC € (Live)      <- Debits L Total UAC €
 //   Total Payments € (Live) <- Debits M Total Payments €
 //
 // PARAMETER (Query Editor > Manage Parameters):
@@ -86,14 +88,15 @@ let
         "Total UAC €", "Total Payments €"
     }),
 
+    // Rename to RawData's EXACT header strings so the append script maps them
+    // 1:1. "Payment Term (days)" already matches, so it is not renamed.
     Renamed = Table.RenameColumns(Selected, {
-        {"Go Live Customer", "Onboard Date"},
-        {"Payment Term (days)", "Payment (days)"},
+        {"Go Live Customer", "Onboard Dt"},
         {"Total AR €", "Total AR € (Live)"},
         {"Overdue €", "Overdue € (Live)"},
-        {">60 days €", ">60 days € (Live)"},
-        {"Gross Sales €", "Gross Sales (Live)"},
-        {">90 days €", ">90 days (Live)"},
+        {">60 days €", "> 60 days € (Live)"},
+        {"Gross Sales €", "Gross Sales € (Live)"},
+        {">90 days €", "> 90 days € (Live)"},
         {"Total UAC €", "Total UAC € (Live)"},
         {"Total Payments €", "Total Payments € (Live)"}
     }),
@@ -101,10 +104,10 @@ let
     Typed = Table.TransformColumnTypes(Renamed, {
         {"Month", type date},
         {"Country", type text}, {"Customer", type text},
-        {"Onboard Date", type text}, {"Payment (days)", Int64.Type},
+        {"Onboard Dt", type text}, {"Payment Term (days)", Int64.Type},
         {"Total AR € (Live)", Currency.Type}, {"Overdue € (Live)", Currency.Type},
-        {">60 days € (Live)", Currency.Type}, {"Gross Sales (Live)", Currency.Type},
-        {">90 days (Live)", Currency.Type},
+        {"> 60 days € (Live)", Currency.Type}, {"Gross Sales € (Live)", Currency.Type},
+        {"> 90 days € (Live)", Currency.Type},
         {"Total UAC € (Live)", Currency.Type}, {"Total Payments € (Live)", Currency.Type}
     }),
 
