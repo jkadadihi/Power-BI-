@@ -139,7 +139,9 @@ function normalizeHeader(header: string): string {
  * a value silently land in the wrong currency column.
  */
 function buildColumnMap(stagingHeaders: string[], rawHeaders: string[]): number[] {
-  const normalizedRaw = rawHeaders.map(normalizeHeader);
+  // Office Scripts only permits arrow functions as array-method callbacks,
+  // so normalizeHeader cannot be passed by name here.
+  const normalizedRaw = rawHeaders.map((h) => normalizeHeader(h));
 
   const seen: string[] = [];
   const duplicates: string[] = [];
