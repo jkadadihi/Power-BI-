@@ -130,9 +130,32 @@ function normalizeHeader(header: string): string {
  * Maps each staging column index to a RawData column index (-1 if none),
  * using the alias list first, then normalized matching. Logs the result of
  * every column so mismatches are never silent.
+ *
+ * RawData carries EUR and local-currency versions of the same metrics
+ * ("Total AR € (Live)" vs "Total AR"). Normalization keeps them distinct
+ * because the "(Live)" suffix survives it, so a staging column can only ever
+ * land on the EUR column. The duplicate check below fails loudly if RawData
+ * ever gains two columns that normalize to the same key, rather than letting
+ * a value silently land in the wrong currency column.
  */
 function buildColumnMap(stagingHeaders: string[], rawHeaders: string[]): number[] {
   const normalizedRaw = rawHeaders.map(normalizeHeader);
+
+  const seen: string[] = [];
+  const duplicates: string[] = [];
+  normalizedRaw.forEach((key, i) => {
+    if (seen.indexOf(key) !== -1) {
+      duplicates.push(`"${rawHeaders[i]}"`);
+    } else {
+      seen.push(key);
+    }
+  });
+  if (duplicates.length > 0) {
+    throw new Error(
+      `RawData has columns that are indistinguishable once normalized: ${duplicates.join(", ")}. ` +
+        `Rename them so EUR and local-currency columns stay distinct before appending.`
+    );
+  }
 
   return stagingHeaders.map((stagingHeader) => {
     const alias = HEADER_ALIASES.find((a) => normalizeHeader(a.staging) === normalizeHeader(stagingHeader));
