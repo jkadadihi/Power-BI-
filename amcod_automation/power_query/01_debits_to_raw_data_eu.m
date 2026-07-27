@@ -73,20 +73,39 @@ let
     // [Kind]="Sheet" or it finds nothing (this caused an early 0-rows bug).
     SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Item] = "VW_AMKAD_Source_Debits"),
 
-    // Debits spells the local-currency column "overdue" (lowercase) while the
-    // EUR one is "Overdue €". Power Query column names are case-sensitive, so
-    // asking for "Overdue" silently yields a column of nulls. Normalize first,
-    // tolerating either spelling.
-    FixOverdueCase = Table.TransformColumns(SourceSheetOnly, {{"Data", each
-        if List.Contains(Table.ColumnNames(_), "overdue")
-        then Table.RenameColumns(_, {{"overdue", "Overdue"}})
-        else _}}),
+    // Debits header spellings are inconsistent - "overdue" is lowercase while
+    // the EUR twin is "Overdue €", and the day buckets carry a space after the
+    // ">" ("> 60 days €"). Power Query column names are case- AND
+    // space-sensitive, so any mismatch silently expands to a column of nulls,
+    // which then zero-fills and looks like real zeros. Normalize every header
+    // to the canonical spellings used downstream before expanding, so a future
+    // spelling change in the source cannot quietly blank a metric.
+    CanonicalNames = {
+        "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
+        "Gross Sales €", "Total AR €", "Overdue €", ">60 days €", ">90 days €",
+        "Total UAC €", "Total Payments €",
+        "Gross Sales", "Total AR", "Overdue", ">60 days", ">90 days",
+        "Total UAC", "Total Payments"
+    },
+    NormalizeKey = (name as text) as text => Text.Lower(Text.Remove(name, {" "})),
+    NormalizeHeaders = Table.TransformColumns(SourceSheetOnly, {{"Data", each
+        let
+            actual = Table.ColumnNames(_),
+            renames = List.RemoveNulls(List.Transform(actual, (a) =>
+                let
+                    match = List.First(
+                        List.Select(CanonicalNames, (c) => NormalizeKey(c) = NormalizeKey(a)),
+                        null)
+                in
+                    if match <> null and match <> a then {a, match} else null))
+        in
+            Table.RenameColumns(_, renames)}}),
 
     // BOTH currency sets: Debits G-M are EUR (-> RawData's "€ (Live)" columns)
     // and Debits N-T are the same metrics in local currency (-> RawData's bare
     // columns). Pulling only the EUR set left every local-currency column in
     // RawData blank, which is what they are for.
-    ExpandRows = Table.ExpandTableColumn(FixOverdueCase, "Data", {
+    ExpandRows = Table.ExpandTableColumn(NormalizeHeaders, "Data", {
         "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
         "Gross Sales €", "Total AR €", "Overdue €", ">60 days €", ">90 days €",
         "Total UAC €", "Total Payments €",
