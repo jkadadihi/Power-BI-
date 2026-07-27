@@ -76,10 +76,11 @@ actually keeps the files:
   already inside the file, so nothing has to rebuild it and the old Debits
   source files are never needed - only the current month's Debits file has
   to exist.
-- **The query pulls the current month only** (parameter
-  `ReportMonth_FolderName`, set by the flow), into a staging table
+- **The query pulls the current month only**, into a staging table
   `Staging_CurrentMonth`. It does not recurse history and does not overwrite
-  RawData.
+  RawData. The month is auto-derived as *last* month (a month closes during
+  the following month), so there is no parameter to advance - just refresh.
+  Only `SharePointSite_Url` is a parameter.
 - **The Office Script appends the staging rows to the bottom of RawData as
   values**, so they become permanent history the next duplicate carries
   forward. It is re-run safe (skips a month already present) and re-asserts
@@ -91,24 +92,38 @@ actually keeps the files:
 
 Confirmed facts baked into these files:
 
-- Debits sheet name is `VW_AMKAD_Source_Debits`, referenced by name.
-- Debits columns A-T are known; only Month/Country/Customer/Onboard Date/
-  Payment days and the 7 EUR ("Live") metrics are used. Local-currency
-  columns (N-T) are ignored.
+- `VW_AMKAD_Source_Debits` is a loaded query **table** inside the Debits
+  workbook, not a worksheet tab. Filtering on `[Kind] = "Sheet"` matches
+  nothing - match on `[Item]` alone.
+- The Debits file keeps the **same name every month**; only its folder
+  changes (`.../Qtr 2/June 2026/`), so the month is derived from the folder
+  path, not the filename.
+- Debits carries **both currency sets**: G-M in EUR (-> RawData's
+  `€ (Live)` columns) and N-T in local currency (-> RawData's bare columns).
+  Both are needed. Pulling only EUR leaves the local columns blank *and*
+  silently breaks DSO.
+- Debits spells the local-currency column **`overdue` in lowercase** while
+  the EUR one is `Overdue €`. Power Query column names are case-sensitive,
+  so this needs an explicit normalize step or it yields nulls.
+- RawData's header strings are not what you would guess: `Onboard Dt` (not
+  "Onboard Date"), `Payment Term (days)`, `Gross Sales € (Live)`, and a
+  **space after `>`** in the day-bucket columns. The append script therefore
+  matches headers on a normalized key rather than exact text.
+- **Payments arrive negative from SAP** (-1923) and are reported positive
+  (1923) - Stage 4 "Payment Cleanup" is folded into the query.
 - DSO is a RawData formula
-  (`Total AR / Gross Sales * VLOOKUP(Month, CD3Mth, 3, 0)`), not a Debits
-  value, so DSO is not written by either the query or the script - it
-  auto-fills as a calculated column on the appended rows.
-- The workbook currently has zero Power Query connections, so there is
-  nothing existing to conflict with when adding `Debits_CurrentMonth`.
+  (`Total AR / Gross Sales * VLOOKUP(Month, CD3Mth, 3, 0)`) that reads the
+  **local-currency** columns. It is never written by the query or script; it
+  computes on the appended rows once those columns are populated. A DSO of 0
+  on a new row means the local-currency columns came through blank.
 
-Remaining setup to confirm in the workbook before first automated run:
-- Exact RawData table name and the exact header strings for the Live
-  columns - fix `RAWDATA_TABLE` / `COLUMN_MAP` in
-  `AppendCurrentMonthToRawData.ts` if any differ.
-- Whether the Excel Online connector can set the `ReportMonth_FolderName`
-  Power Query parameter directly; if not, store the month in a named cell
-  the query reads and have the flow write that cell (noted in the flow doc).
+Validated end-to-end against real June 2026 data: every column of the
+appended row matches the manually-produced row, including DSO.
+
+Remaining before the first fully automated run:
+- Whether the Excel Online connector can refresh a Power Query connection
+  directly, or whether the flow needs a small refresh script alongside the
+  append script.
 
 `02_remove_amazon.m`, `03_convert_negative_payments.m`, and
 `04_brm_integration.m` (Priorities 2, 3, 6) are still built against assumed
