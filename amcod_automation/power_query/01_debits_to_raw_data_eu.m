@@ -125,6 +125,25 @@ let
         {"Total UAC", Currency.Type}, {"Total Payments", Currency.Type}
     }),
 
-    Sorted = Table.Sort(Typed, {{"Country", Order.Ascending}, {"Customer", Order.Ascending}})
+    // Stage 4 "Payment Cleanup": SAP exports payments as negatives, but AMCOD
+    // reports them positive (-1923 in Debits is 1923 in RawData). Flip both
+    // currency versions.
+    PaymentsPositive = Table.TransformColumns(Typed, {
+        {"Total Payments € (Live)", each if _ = null then null else Number.Abs(_), Currency.Type},
+        {"Total Payments", each if _ = null then null else Number.Abs(_), Currency.Type}
+    }),
+
+    // Empty metric cells are reported as 0, matching how the month block reads
+    // today - a blank bucket means nothing aged into it, not unknown.
+    MetricColumns = {
+        "Total AR € (Live)", "Overdue € (Live)", "> 60 days € (Live)",
+        "Gross Sales € (Live)", "> 90 days € (Live)",
+        "Total UAC € (Live)", "Total Payments € (Live)",
+        "Total AR", "Overdue", ">60 days", "Gross Sales", ">90 days",
+        "Total UAC", "Total Payments"
+    },
+    ZeroFilled = Table.ReplaceValue(PaymentsPositive, null, 0, Replacer.ReplaceValue, MetricColumns),
+
+    Sorted = Table.Sort(ZeroFilled, {{"Country", Order.Ascending}, {"Customer", Order.Ascending}})
 in
     Sorted
