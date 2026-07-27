@@ -60,7 +60,10 @@ let
 
     AddData = Table.AddColumn(ThisMonthFile, "Data", each Excel.Workbook([Content], null, true)),
     ExpandSheets = Table.ExpandTableColumn(AddData, "Data", {"Item", "Kind", "Data"}, {"Item", "Kind", "Data"}),
-    SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Kind] = "Sheet" and [Item] = "VW_AMKAD_Source_Debits"),
+    // VW_AMKAD_Source_Debits is a loaded query TABLE inside the Debits file,
+    // not a worksheet tab, so match on [Item] only - do NOT restrict to
+    // [Kind]="Sheet" or it finds nothing (this caused an early 0-rows bug).
+    SourceSheetOnly = Table.SelectRows(ExpandSheets, each [Item] = "VW_AMKAD_Source_Debits"),
 
     ExpandRows = Table.ExpandTableColumn(SourceSheetOnly, "Data", {
         "Month", "Country", "Customer", "Go Live Customer", "Payment Term (days)",
