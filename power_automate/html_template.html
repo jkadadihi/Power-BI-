@@ -367,6 +367,76 @@ h1 {
   color: var(--ink);
 }
 
+/* ---- SPR (Account Business Review) ---- */
+.spr-title-bar {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--dhl-red);
+  letter-spacing: .3px;
+  margin: 4px 0 4px;
+}
+.spr-date-line {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 16px;
+}
+.spr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.spr-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.spr-panel-head {
+  background: var(--dhl-yellow, #ffcc00);
+  color: #1a1d21;
+  font-weight: 800;
+  font-size: 13px;
+  text-align: center;
+  padding: 8px 10px;
+  letter-spacing: .4px;
+}
+.spr-panel-body {
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;   /* keep the collector's line breaks */
+  min-height: 150px;
+}
+.spr-panel-body.empty {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.spr-forecast-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.spr-forecast-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.spr-forecast-table td:first-child { color: var(--ink); font-weight: 600; }
+.spr-forecast-table td:last-child {
+  text-align: right; font-weight: 700; color: var(--dhl-red); white-space: nowrap;
+}
+.spr-missing-note {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin-top: 10px;
+}
+
 .customer-table-note {
   font-size: 12.5px;
   color: var(--ink-soft);
@@ -942,6 +1012,7 @@ mark.search-hit {
       <button class="tab-button" onclick="openTab('countries', this)">Countries</button>
       <button class="tab-button" onclick="openTab('action', this)">Action Required</button>
       <button class="tab-button" onclick="openTab('uac', this)">UAC</button>
+      <button class="tab-button" onclick="openTab('spr', this)">SPR</button>
       <button class="tab-button" onclick="openTab('simulator', this)">Simulator</button>
       <button class="tab-button" onclick="openTab('drilldown', this)">Drilldown</button>
       <button class="tab-button" onclick="openTab('trends', this)">Trends</button>
@@ -1221,6 +1292,42 @@ mark.search-hit {
     @{outputs('Run_script')?['body/result']?['UACCountryTable']}
 
     @{outputs('Run_script')?['body/result']?['UACExceptionsTable']}
+  </div>
+
+  <div class="section tab-content" id="spr">
+    <div class="section-title">SPR — Account Business Review</div>
+    <div class="section-note">
+      Select a country and customer to see that account's review. Main Issues, Actions, and the
+      cash forecasting figures are maintained by the collectors in the SPR sheet of the input
+      workbook. The AR figures come from the report data.
+    </div>
+
+    <div class="simulator-panel">
+      <div class="simulator-grid">
+        <div class="sim-field">
+          <label>Country</label>
+          <select id="sprCountrySelect" onchange="onSprCountryChange()">
+            <option value="">Choose a country</option>
+          </select>
+        </div>
+        <div class="sim-field">
+          <label>Customer</label>
+          <select id="sprCustomerSelect" onchange="renderSpr()">
+            <option value="">Choose a customer</option>
+          </select>
+        </div>
+        <div class="sim-field">
+          <label>Month</label>
+          <select id="sprMonthSelect" onchange="renderSpr()">
+            <option value="">Latest available</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="sprReview" style="margin-top:20px;">
+      <div class="summary">Choose a country and customer above to view the account review.</div>
+    </div>
   </div>
 
   <div class="section tab-content" id="simulator">
@@ -1685,6 +1792,7 @@ const customerDrilldownData = @{outputs('Run_script')?['body/result']?['Customer
 const customerMoMData = @{outputs('Run_script')?['body/result']?['CustomerMoMJson']};
 const dataQuality = @{outputs('Run_script')?['body/result']?['DataQualityJson']};
 const configuredThresholds = @{outputs('Run_script')?['body/result']?['ThresholdsJson']};
+const sprCommentaryData = @{outputs('Run_script')?['body/result']?['SprCommentaryJson']};
 
 function euro(value) {
   if (!isFinite(value)) return "€0";
@@ -3744,6 +3852,156 @@ function resetThresholdsToConfigured() {
   if (note) note.innerHTML = "Reset to the report's configured defaults.";
 }
 
+/* ------------------------------------------------------------------
+   SPR — Account Business Review, one customer at a time.
+
+   Commentary (Main Issues / Actions / cash forecasting) comes from the
+   SPRCommentaryTbl the collectors maintain in the input workbook, keyed by
+   Month + Country + Customer so past cycles are kept rather than overwritten.
+   The AR figures come from the report's own customer drill-down data.
+------------------------------------------------------------------ */
+function sprRows() {
+  return (typeof sprCommentaryData !== "undefined" && sprCommentaryData) ? sprCommentaryData : [];
+}
+
+function initSpr() {
+  const countrySel = document.getElementById("sprCountrySelect");
+  const monthSel = document.getElementById("sprMonthSelect");
+  if (!countrySel) return;
+
+  // Countries come from the AR data so the tab works even before any
+  // commentary has been written.
+  const countries = [];
+  if (typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
+    customerDrilldownData.forEach(r => {
+      if (r.country && countries.indexOf(r.country) === -1) countries.push(r.country);
+    });
+  }
+  countries.sort().forEach(c => {
+    countrySel.innerHTML += '<option value="' + escapeHtmlClient(c) + '">' + escapeHtmlClient(c) + "</option>";
+  });
+
+  // Months that actually have commentary, newest first.
+  const months = [];
+  sprRows().forEach(r => {
+    if (r.month && months.indexOf(r.month) === -1) months.push(r.month);
+  });
+  months.sort().reverse().forEach(m => {
+    monthSel.innerHTML += '<option value="' + escapeHtmlClient(m) + '">' + escapeHtmlClient(m) + "</option>";
+  });
+}
+
+function onSprCountryChange() {
+  const country = document.getElementById("sprCountrySelect").value;
+  const custSel = document.getElementById("sprCustomerSelect");
+  custSel.innerHTML = '<option value="">Choose a customer</option>';
+
+  if (country && typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
+    const names = [];
+    customerDrilldownData.forEach(r => {
+      if (r.country === country && r.customer && names.indexOf(r.customer) === -1) {
+        names.push(r.customer);
+      }
+    });
+    names.sort().forEach(n => {
+      custSel.innerHTML += '<option value="' + escapeHtmlClient(n) + '">' + escapeHtmlClient(n) + "</option>";
+    });
+  }
+  renderSpr();
+}
+
+function renderSpr() {
+  const box = document.getElementById("sprReview");
+  if (!box) return;
+
+  const country = document.getElementById("sprCountrySelect").value;
+  const customer = document.getElementById("sprCustomerSelect").value;
+  const month = document.getElementById("sprMonthSelect").value;
+
+  if (!country || !customer) {
+    box.innerHTML = '<div class="summary">Choose a country and customer above to view the account review.</div>';
+    return;
+  }
+
+  // Find this account's commentary. If no month is chosen, take the latest one
+  // available for that account.
+  const matches = sprRows().filter(r => r.country === country && r.customer === customer);
+  let entry = null;
+  if (month) {
+    entry = matches.filter(r => r.month === month)[0] || null;
+  } else if (matches.length) {
+    entry = matches.slice().sort((a, b) => String(a.month).localeCompare(String(b.month))).pop();
+  }
+
+  // AR figures for the same account, from the report's own data.
+  let ar = null;
+  if (typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
+    ar = customerDrilldownData.filter(r => r.country === country && r.customer === customer)[0] || null;
+  }
+
+  const panel = (title, value) => {
+    const empty = !value || !String(value).trim();
+    return '<div class="spr-panel">' +
+             '<div class="spr-panel-head">' + title + "</div>" +
+             '<div class="spr-panel-body' + (empty ? " empty" : "") + '">' +
+               (empty ? "Not yet entered for this cycle." : escapeHtmlClient(value)) +
+             "</div></div>";
+  };
+
+  const money = v => euro(Number(v) || 0);
+  const forecastRows = [
+    ["Payments In House Pending Application", entry ? entry.pendingApplication : null],
+    ["Expected payments", entry ? entry.expectedPayments : null],
+    ["Forecasted Overdue EOM", entry ? entry.forecastOverdue : null],
+    ["Forecasted &gt;60 EOM", entry ? entry.forecastGT60 : null],
+    ["Forecasted &gt;90 EOM", entry ? entry.forecastGT90 : null]
+  ];
+  const forecastPanel =
+    '<div class="spr-panel">' +
+      '<div class="spr-panel-head">PAYMENTS</div>' +
+      '<div class="spr-panel-body" style="padding:0;">' +
+        (entry
+          ? '<table class="spr-forecast-table"><tbody>' +
+            forecastRows.map(r =>
+              "<tr><td>" + r[0] + "</td><td>" + money(r[1]) + "</td></tr>").join("") +
+            "</tbody></table>"
+          : '<div style="padding:14px 16px;" class="empty">Not yet entered for this cycle.</div>') +
+      "</div></div>";
+
+  const arTable = ar
+    ? '<div class="customer-table-wrapper"><div class="customer-table-title">Financial Performance</div>' +
+      '<table class="customer-matrix"><thead><tr>' +
+        "<th>Total AR</th><th>Overdue</th><th>Overdue %</th><th>GT60</th><th>GT90</th><th>UAC</th>" +
+      "</tr></thead><tbody><tr>" +
+        "<td>" + euro(ar.totalAR) + "</td>" +
+        "<td>" + euro(ar.overdue) + "</td>" +
+        "<td>" + pct(ar.overduePct) + "</td>" +
+        "<td>" + euro(ar.gt60) + "</td>" +
+        "<td>" + euro(ar.gt90) + "</td>" +
+        "<td>" + euro(ar.uac) + "</td>" +
+      "</tr></tbody></table>" +
+      '<div class="spr-missing-note">Aging shown at the level the report data provides ' +
+      "(Total AR, Overdue, GT60, GT90). The finer 0-30 / 31-60 / 61-90 / 91-180 / over-180 split and the " +
+      "Duty vs Freight breakdown are not in the current data source.</div></div>"
+    : '<div class="summary">No AR data found for this customer in the latest snapshot.</div>';
+
+  const shownMonth = entry && entry.month ? entry.month
+                    : (dataQuality && dataQuality.latestMonth) || "";
+
+  box.innerHTML =
+    '<div class="spr-title-bar">' + escapeHtmlClient(customer) + " " + escapeHtmlClient(country) +
+      " &ndash; ACCOUNT BUSINESS REVIEW</div>" +
+    '<div class="spr-date-line">' + (shownMonth ? "Period: " + escapeHtmlClient(shownMonth) : "") + "</div>" +
+    '<div class="spr-grid">' +
+      panel("MAIN ISSUES", entry ? entry.mainIssues : "") +
+      panel("ACTIONS", entry ? entry.actions : "") +
+      forecastPanel +
+    "</div>" +
+    arTable +
+    (entry ? "" : '<div class="spr-missing-note">No commentary has been entered yet for this account. ' +
+                  "Collectors can add it in the SPR sheet of the input workbook.</div>");
+}
+
 function init() {
   // Each step is isolated so a failure in a sandboxed viewer can't abort the rest.
   safeRender(initTheme);
@@ -3755,6 +4013,7 @@ function init() {
   safeRender(renderAgingCalibrationNote);
   safeRender(initDrilldownTables);
   safeRender(populateCustomerSimSelect);
+  safeRender(initSpr);
   // Apply any thresholds the user previously saved in this browser.
   safeRender(recomputeThresholdDependentUi);
 

@@ -224,6 +224,72 @@ function main(workbook: ExcelScript.Workbook) {
     return config;
   }
 
+  /**
+   * Reads the SPR (Account Business Review) commentary table that collectors
+   * maintain by hand: Main Issues, Actions, and the cash-forecasting figures,
+   * one row per Month + Country + Customer.
+   *
+   * History is kept by month, so past cycles stay readable rather than being
+   * overwritten. Returns every row; the report picks the right one client-side
+   * based on the selected country/customer/month.
+   *
+   * The table is optional. If SPRCommentaryTbl does not exist yet, this simply
+   * returns an empty list and the SPR tab shows "no commentary entered".
+   */
+  function readSprCommentary(): Record<string, string | number>[] {
+    const table = getTableOrNull("SPRCommentaryTbl");
+    if (!table) return [];
+
+    const headers = table.getHeaderRowRange().getValues()[0].map(h => text(h).trim());
+    const idxOf = (name: string): number => headers.indexOf(name);
+
+    const col = {
+      month: idxOf("Month"),
+      country: idxOf("Country"),
+      customer: idxOf("Customer"),
+      mainIssues: idxOf("Main Issues"),
+      actions: idxOf("Actions"),
+      pendingApplication: idxOf("Payments In House Pending Application"),
+      expectedPayments: idxOf("Expected Payments"),
+      forecastOverdue: idxOf("Forecasted Overdue EOM"),
+      forecastGT60: idxOf("Forecasted GT60 EOM"),
+      forecastGT90: idxOf("Forecasted GT90 EOM")
+    };
+
+    // Country + Customer are the minimum needed to attach commentary to a row.
+    if (col.country === -1 || col.customer === -1) return [];
+
+    const num = (row: (string | number | boolean)[], i: number): number => {
+      if (i === -1) return 0;
+      const n = Number(row[i]);
+      return isFinite(n) ? n : 0;
+    };
+    const str = (row: (string | number | boolean)[], i: number): string =>
+      i === -1 ? "" : text(row[i]);
+
+    const out: Record<string, string | number>[] = [];
+    getTableValuesSafe(table).forEach(row => {
+      const customer = str(row, col.customer);
+      const country = str(row, col.country);
+      if (!customer || !country) return; // skip blank rows
+
+      out.push({
+        month: str(row, col.month),
+        country: country,
+        customer: customer,
+        mainIssues: str(row, col.mainIssues),
+        actions: str(row, col.actions),
+        pendingApplication: num(row, col.pendingApplication),
+        expectedPayments: num(row, col.expectedPayments),
+        forecastOverdue: num(row, col.forecastOverdue),
+        forecastGT60: num(row, col.forecastGT60),
+        forecastGT90: num(row, col.forecastGT90)
+      });
+    });
+
+    return out;
+  }
+
   function readFieldMapping(): FieldMap {
     const table = getTableOrNull("FieldMappingTbl");
     if (!table) return {};
@@ -1275,6 +1341,9 @@ function main(workbook: ExcelScript.Workbook) {
     CustomerDrilldownJson: JSON.stringify(customerDrilldown),
     CustomerMoMJson: JSON.stringify(customerMoM),
     DataQualityJson: JSON.stringify(dataQuality),
+    // Collector-maintained SPR commentary (Main Issues / Actions / cash
+    // forecasting) per Month + Country + Customer, kept as history.
+    SprCommentaryJson: JSON.stringify(readSprCommentary()),
     // The actual resolved threshold values (from ReportConfigTbl, or the
     // fallback defaults if unset) — sent so the report's client-side
     // "Edit thresholds" panel starts from what's really configured, not a
