@@ -19,9 +19,10 @@
 // has formula columns (DSO, TDSO Gap, %) that Power Query would destroy,
 // and the append is done by the Office Script, not by this query.
 //
-// CONFIRMED SHEET NAME (inside the Debits workbook): VW_AMKAD_Source_Debits
+// CONFIRMED SOURCE TABLE (a loaded query table inside the Debits workbook,
+// not a worksheet tab): VW_AMKAD_Source_Debits
 //
-// CONFIRMED DEBITS COLUMNS (sheet VW_AMKAD_Source_Debits):
+// CONFIRMED DEBITS COLUMNS (table VW_AMKAD_Source_Debits):
 //   A Month | B Country | C Customer | D Go Live Customer
 //   E Payment Term (days) | F DSO (NOT used - DSO is a formula in RawData)
 //   G Gross Sales € | H Total AR € | I Overdue € | J >60 days € | K >90 days €
@@ -42,19 +43,24 @@
 //   Total UAC € (Live)     <- Debits L Total UAC €
 //   Total Payments € (Live) <- Debits M Total Payments €
 //
-// PARAMETERS (Query Editor > Manage Parameters):
-//   SharePointSite_Url      e.g. "https://dhl.sharepoint.com/sites/AMROFinance"
-//   ReportMonth_FolderName  the current month's folder name, e.g. "July 2026".
-//                           The Power Automate flow sets this each month so a
-//                           freshly duplicated file pulls the RIGHT month
-//                           instead of the month it was copied from.
+// PARAMETER (Query Editor > Manage Parameters):
+//   SharePointSite_Url  e.g. "https://dpdhl.sharepoint.com/teams/EXP-USQIA-BS33384_AMKAD"
+//
+// The report month is auto-calculated (see ReportMonthName below) as LAST
+// month, since a month is closed during the following month. So there is no
+// month parameter to advance - just refresh. To force a specific month
+// (re-run an old month, or a late close), replace the ReportMonthName line
+// with a literal, e.g.  ReportMonthName = "June 2026",
 
 let
+    // Auto-pick LAST month's folder. In July 2026 this yields "June 2026".
+    ReportMonthName = Date.ToText(Date.AddMonths(DateTime.Date(DateTime.LocalNow()), -1), "MMMM yyyy", "en-US"),
+
     Source = SharePoint.Files(SharePointSite_Url, [ApiVersion = 15]),
 
-    // Narrow to the ONE Debits file in this month's folder.
+    // Narrow to the ONE Debits file in that month's folder.
     ThisMonthFile = Table.SelectRows(Source,
-        each Text.Contains([Folder Path], ReportMonth_FolderName)
+        each Text.Contains([Folder Path], ReportMonthName)
              and (Text.EndsWith([Extension], ".xlsx") or Text.EndsWith([Extension], ".xlsm"))
              and Text.Contains([Name], "Debits", Comparer.OrdinalIgnoreCase)),
 
