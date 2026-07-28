@@ -471,6 +471,16 @@ h1 {
 
 .spr-acc-controls { display: flex; gap: 8px; margin-bottom: 12px; }
 
+/* Names the table each set of figures was read from, so with both bases on
+   screen there is never a question about which is which. */
+.spr-source {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin: -6px 0 10px;
+  letter-spacing: .2px;
+}
+.spr-source b { color: var(--ink); }
+
 .spr-acc {
   border: 1px solid var(--line); border-radius: 10px;
   background: var(--surface); margin-bottom: 10px; overflow: hidden;
@@ -4065,10 +4075,12 @@ function renderSprCountry(country, month) {
     return b;
   });
 
-  // Accounts with commentary first (those are the ones being discussed), then
-  // largest AR first so the review starts where the money is.
+  // Largest GT90 first: the oldest money is the most critical, so the accounts
+  // that need attention surface at the top without hunting for them. Total AR
+  // breaks ties so the order stays stable when GT90 is equal (often zero).
   blocks.sort((a, b) => {
-    if (a.hasCommentary !== b.hasCommentary) return a.hasCommentary ? -1 : 1;
+    const d = (b.gt90 || 0) - (a.gt90 || 0);
+    if (d !== 0) return d;
     return (b.totalAR || 0) - (a.totalAR || 0);
   });
 
@@ -4138,15 +4150,12 @@ function buildSprBlock(country, customer, month) {
     entry = matches.slice().sort((a, b) => String(a.month).localeCompare(String(b.month))).pop();
   }
 
-  // AR figures for the same account. SPRs are reported on month-end numbers, so
-  // prefer the closed-month figures from MonthEndAR when they cover the month
-  // being shown. Month close can shift by days, so the last daily snapshot of a
-  // month is not the close and must not be passed off as it. Fall back to the
-  // daily snapshot only when there is no month-end row, and say so on screen.
-  let ar = null;
-  let arBasis = "daily";
-  let arBasisMonth = "";
-
+  // AR figures for the same account, on BOTH bases, shown one above the other:
+  // the month-end close (what the SPR is reported on) and the daily/current
+  // position (where the account stands right now). Month close can shift by
+  // days, so the last daily snapshot of a month is not the close; keeping them
+  // side by side lets the reviewer see the movement since close instead of
+  // having to pick one number and hope it is the right one.
   const monthEndRows = (typeof monthEndARData !== "undefined" && monthEndARData) ? monthEndARData : [];
   const meMatches = monthEndRows.filter(r => r.country === country && r.customer === customer);
   // entry is resolved above: it is the commentary row for the month on screen.
@@ -4155,13 +4164,14 @@ function buildSprBlock(country, customer, month) {
     ? meMatches.filter(r => String(r.month) === wantMonth)[0]
     : meMatches[0];
 
-  if (me) {
-    ar = me;
-    arBasis = "monthEnd";
-    arBasisMonth = String(me.month || "");
-  } else if (typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
-    ar = customerDrilldownData.filter(r => r.country === country && r.customer === customer)[0] || null;
-  }
+  const dailyRow = (typeof customerDrilldownData !== "undefined" && customerDrilldownData)
+    ? (customerDrilldownData.filter(r => r.country === country && r.customer === customer)[0] || null)
+    : null;
+
+  // Summary figures follow the month-end basis when it exists, since that is
+  // what the review is reported on.
+  const ar = me || dailyRow;
+  const arBasisMonth = me ? String(me.month || "") : "";
 
   // Issues and actions are captured one row per issue, so render them as two
   // matching numbered lists: item 3 under MAIN ISSUES is the same item 3 under
@@ -4210,31 +4220,62 @@ function buildSprBlock(country, customer, month) {
           : '<div style="padding:14px 16px;" class="empty">Not yet entered for this cycle.</div>') +
       "</div></div>";
 
-  const arBasisLabel = arBasis === "monthEnd"
-    ? '<span class="spr-basis spr-basis-eom">' +
-        escapeHtmlClient(arBasisMonth) + " month-end close</span>"
-    : '<span class="spr-basis spr-basis-daily">Daily snapshot' +
-        ((dataQuality && dataQuality.latestSnapshotDate)
-          ? " as at " + escapeHtmlClient(dataQuality.latestSnapshotDate) : "") +
-        ", not a month-end close</span>";
+  // Percentages: the daily rows already carry gt60Pct/gt90Pct, the month-end
+  // rows do not, so derive them when absent rather than showing a blank.
+  const share = (part, whole, given) => {
+    if (given !== undefined && given !== null && isFinite(given)) return given;
+    const w = Number(whole) || 0;
+    return w !== 0 ? (Number(part) || 0) / w : 0;
+  };
 
-  const arTable = ar
-    ? '<div class="customer-table-wrapper"><div class="customer-table-title">Financial Performance ' +
-      arBasisLabel + "</div>" +
+  // Each table states the table it was actually read from, so there is no
+  // guessing which basis a number came from when both are on screen.
+  const perfRow = (row, badge, source) =>
+    '<div class="customer-table-wrapper" style="margin-bottom:12px;">' +
+      '<div class="customer-table-title">Financial Performance ' + badge + "</div>" +
+      '<div class="spr-source">' + source + "</div>" +
       '<table class="customer-matrix"><thead><tr>' +
-        "<th>Total AR</th><th>Overdue</th><th>Overdue %</th><th>GT60</th><th>GT90</th><th>UAC</th>" +
+        "<th>Total AR</th><th>Overdue</th><th>Overdue %</th>" +
+        "<th>GT60</th><th>GT60 %</th><th>GT90</th><th>GT90 %</th><th>UAC</th>" +
       "</tr></thead><tbody><tr>" +
-        "<td>" + euro(ar.totalAR) + "</td>" +
-        "<td>" + euro(ar.overdue) + "</td>" +
-        "<td>" + pct(ar.overduePct) + "</td>" +
-        "<td>" + euro(ar.gt60) + "</td>" +
-        "<td>" + euro(ar.gt90) + "</td>" +
-        "<td>" + euro(ar.uac) + "</td>" +
-      "</tr></tbody></table>" +
-      '<div class="spr-missing-note">Aging shown at the level the report data provides ' +
+        "<td>" + euro(row.totalAR) + "</td>" +
+        "<td>" + euro(row.overdue) + "</td>" +
+        "<td>" + pct(share(row.overdue, row.totalAR, row.overduePct)) + "</td>" +
+        "<td>" + euro(row.gt60) + "</td>" +
+        "<td>" + pct(share(row.gt60, row.totalAR, row.gt60Pct)) + "</td>" +
+        "<td>" + euro(row.gt90) + "</td>" +
+        "<td>" + pct(share(row.gt90, row.totalAR, row.gt90Pct)) + "</td>" +
+        "<td>" + euro(row.uac) + "</td>" +
+      "</tr></tbody></table></div>";
+
+  const eomBadge = '<span class="spr-basis spr-basis-eom">' +
+    (arBasisMonth ? escapeHtmlClient(arBasisMonth) + " " : "") + "month-end close</span>";
+  const dailyBadge = '<span class="spr-basis spr-basis-daily">Daily / current' +
+    ((dataQuality && dataQuality.latestSnapshotDate)
+      ? " as at " + escapeHtmlClient(dataQuality.latestSnapshotDate) : "") + "</span>";
+
+  const eomSource = "EOM DATA &middot; read from the <b>MonthEndAR</b> table " +
+    "(Debits month-end close" +
+    (arBasisMonth ? ", period " + escapeHtmlClient(arBasisMonth) : "") + ")";
+  const dailySource = "CURRENT DATA &middot; read from the daily <b>RawData</b> pipeline" +
+    ((dataQuality && dataQuality.latestSnapshotDate)
+      ? " (snapshot " + escapeHtmlClient(dataQuality.latestSnapshotDate) + ")" : "");
+
+  let arTable = "";
+  if (me) arTable += perfRow(me, eomBadge, eomSource);
+  if (dailyRow) arTable += perfRow(dailyRow, dailyBadge, dailySource);
+  if (!arTable) {
+    arTable = '<div class="summary">No AR data found for this customer.</div>';
+  } else {
+    if (!me) {
+      arTable = '<div class="spr-missing-note" style="margin-bottom:10px;">No month-end close ' +
+        "figures available for this period, so only the daily position is shown. The SPR is " +
+        "normally reported on month-end numbers.</div>" + arTable;
+    }
+    arTable += '<div class="spr-missing-note">Aging shown at the level the report data provides ' +
       "(Total AR, Overdue, GT60, GT90). The finer 0-30 / 31-60 / 61-90 / 91-180 / over-180 split and the " +
-      "Duty vs Freight breakdown are not in the current data source.</div></div>"
-    : '<div class="summary">No AR data found for this customer in the latest snapshot.</div>';
+      "Duty vs Freight breakdown are not in the current data source.</div>";
+  }
 
   const shownMonth = entry && entry.month ? entry.month
                     : (dataQuality && dataQuality.latestMonth) || "";
