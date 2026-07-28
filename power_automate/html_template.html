@@ -451,6 +451,59 @@ h1 {
   color: #8a6100;
   border: 1px solid rgba(250,178,25,0.4);
 }
+
+/* ---- Country view: the whole country as a list, each account drillable ---- */
+.spr-country-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+  background: var(--ink); color: var(--surface);
+  border-radius: 12px; padding: 16px 20px; margin-bottom: 14px;
+}
+.spr-country-name { font-size: 20px; font-weight: 800; letter-spacing: .3px; }
+.spr-country-sub { font-size: 12px; opacity: .75; margin-top: 2px; }
+.spr-country-metrics { display: flex; gap: 26px; flex-wrap: wrap; }
+.spr-country-metrics div { display: flex; flex-direction: column; }
+.spr-country-metrics span { font-size: 11px; opacity: .75; text-transform: uppercase; letter-spacing: .4px; }
+.spr-country-metrics strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.spr-cov-full { color: #6ee7a0; }
+.spr-cov-part { color: #ffd166; }
+.spr-cov-none { color: #ff9d9d; }
+
+.spr-acc-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+
+.spr-acc {
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); margin-bottom: 10px; overflow: hidden;
+}
+.spr-acc-head {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; cursor: pointer; user-select: none;
+  transition: background .12s;
+}
+.spr-acc-head:hover { background: var(--surface-2); }
+.spr-acc-caret { color: var(--ink-soft); transition: transform .15s; font-size: 13px; }
+.spr-acc-head.open .spr-acc-caret { transform: rotate(90deg); }
+.spr-acc-name { font-weight: 700; font-size: 14.5px; flex: 1 1 auto; min-width: 140px; }
+.spr-acc-tags { flex: 0 0 auto; }
+.spr-tag {
+  display: inline-block; padding: 3px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+}
+.spr-tag-issues {
+  background: rgba(212,5,17,0.10); color: var(--dhl-red);
+  border: 1px solid rgba(212,5,17,0.22);
+}
+.spr-tag-blank {
+  background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--line);
+}
+.spr-acc-metrics { display: flex; gap: 18px; flex: 0 0 auto; flex-wrap: wrap; }
+.spr-acc-metrics span { font-size: 12px; color: var(--ink-soft); }
+.spr-acc-metrics strong { color: var(--ink); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.spr-acc-body { padding: 6px 16px 18px; border-top: 1px solid var(--line); }
+@media (max-width: 900px) {
+  .spr-acc-head { flex-wrap: wrap; }
+  .spr-acc-metrics { width: 100%; }
+}
 .spr-forecast-table {
   width: 100%;
   border-collapse: collapse;
@@ -1331,8 +1384,9 @@ mark.search-hit {
   <div class="section tab-content" id="spr">
     <div class="section-title">SPR — Account Business Review</div>
     <div class="section-note">
-      Select a country and customer to see that account's review. Main Issues, Actions, and the
-      cash forecasting figures are maintained by the collectors in the SPR sheet of the input
+      Pick a country to walk through its accounts, and expand any customer for the full review.
+      Pick a single customer instead if you only need one. Main Issues, Actions, and the cash
+      forecasting figures are maintained by the collectors in the SPR sheets of the input
       workbook. The AR figures come from the report data.
     </div>
 
@@ -1347,7 +1401,7 @@ mark.search-hit {
         <div class="sim-field">
           <label>Customer</label>
           <select id="sprCustomerSelect" onchange="renderSpr()">
-            <option value="">Choose a customer</option>
+            <option value="">All customers in this country</option>
           </select>
         </div>
         <div class="sim-field">
@@ -3927,23 +3981,52 @@ function initSpr() {
   });
 }
 
-function onSprCountryChange() {
-  const country = document.getElementById("sprCountrySelect").value;
-  const custSel = document.getElementById("sprCustomerSelect");
-  custSel.innerHTML = '<option value="">Choose a customer</option>';
-
-  if (country && typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
-    const names = [];
+/* Every customer in a country, whether or not commentary exists yet, so the
+   review can walk the whole country and blanks are visible rather than hidden. */
+function sprCustomersFor(country) {
+  const names = [];
+  if (typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
     customerDrilldownData.forEach(r => {
       if (r.country === country && r.customer && names.indexOf(r.customer) === -1) {
         names.push(r.customer);
       }
     });
-    names.sort().forEach(n => {
-      custSel.innerHTML += '<option value="' + escapeHtmlClient(n) + '">' + escapeHtmlClient(n) + "</option>";
-    });
   }
+  sprRows().forEach(r => {
+    if (r.country === country && r.customer && names.indexOf(r.customer) === -1) {
+      names.push(r.customer);
+    }
+  });
+  return names;
+}
+
+function onSprCountryChange() {
+  const country = document.getElementById("sprCountrySelect").value;
+  const custSel = document.getElementById("sprCustomerSelect");
+  custSel.innerHTML = '<option value="">All customers in this country</option>';
+
+  sprCustomersFor(country).sort().forEach(n => {
+    custSel.innerHTML += '<option value="' + escapeHtmlClient(n) + '">' + escapeHtmlClient(n) + "</option>";
+  });
   renderSpr();
+}
+
+function toggleSprCustomer(idx) {
+  const body = document.getElementById("sprAcc" + idx);
+  const head = document.getElementById("sprAccHead" + idx);
+  if (!body) return;
+  const open = body.style.display !== "none";
+  body.style.display = open ? "none" : "";
+  if (head) head.classList.toggle("open", !open);
+}
+
+function sprExpandAll(open) {
+  const bodies = document.querySelectorAll("#sprReview .spr-acc-body");
+  bodies.forEach((b, i) => {
+    b.style.display = open ? "" : "none";
+    const head = document.getElementById("sprAccHead" + i);
+    if (head) head.classList.toggle("open", open);
+  });
 }
 
 function renderSpr() {
@@ -3954,10 +4037,96 @@ function renderSpr() {
   const customer = document.getElementById("sprCustomerSelect").value;
   const month = document.getElementById("sprMonthSelect").value;
 
-  if (!country || !customer) {
-    box.innerHTML = '<div class="summary">Choose a country and customer above to view the account review.</div>';
+  if (!country) {
+    box.innerHTML = '<div class="summary">Choose a country above to walk through its accounts.</div>';
     return;
   }
+
+  // No customer picked means review the whole country, which is how the SPR
+  // cycle actually runs. Each account collapses so the country reads as a list.
+  if (!customer) {
+    box.innerHTML = renderSprCountry(country, month);
+    return;
+  }
+
+  box.innerHTML = buildSprBlock(country, customer, month).html;
+}
+
+/* The country view: a coverage strip, then one collapsible card per account. */
+function renderSprCountry(country, month) {
+  const names = sprCustomersFor(country);
+  if (!names.length) {
+    return '<div class="summary">No customers found for ' + escapeHtmlClient(country) + ".</div>";
+  }
+
+  const blocks = names.map(n => {
+    const b = buildSprBlock(country, n, month);
+    b.customer = n;
+    return b;
+  });
+
+  // Accounts with commentary first (those are the ones being discussed), then
+  // largest AR first so the review starts where the money is.
+  blocks.sort((a, b) => {
+    if (a.hasCommentary !== b.hasCommentary) return a.hasCommentary ? -1 : 1;
+    return (b.totalAR || 0) - (a.totalAR || 0);
+  });
+
+  const withCommentary = blocks.filter(b => b.hasCommentary).length;
+  const totals = blocks.reduce((acc, b) => {
+    acc.totalAR += b.totalAR || 0;
+    acc.overdue += b.overdue || 0;
+    acc.gt90 += b.gt90 || 0;
+    return acc;
+  }, { totalAR: 0, overdue: 0, gt90: 0 });
+
+  const coverageClass = withCommentary === blocks.length ? "spr-cov-full"
+                      : withCommentary === 0 ? "spr-cov-none" : "spr-cov-part";
+
+  const strip =
+    '<div class="spr-country-bar">' +
+      "<div><div class='spr-country-name'>" + escapeHtmlClient(country) +
+        "</div><div class='spr-country-sub'>" + blocks.length + " account" +
+        (blocks.length === 1 ? "" : "s") + "</div></div>" +
+      "<div class='spr-country-metrics'>" +
+        "<div><span>Total AR</span><strong>" + euro(totals.totalAR) + "</strong></div>" +
+        "<div><span>Overdue</span><strong>" + euro(totals.overdue) + "</strong></div>" +
+        "<div><span>GT90</span><strong>" + euro(totals.gt90) + "</strong></div>" +
+        '<div><span>Commentary</span><strong class="' + coverageClass + '">' +
+          withCommentary + " of " + blocks.length + "</strong></div>" +
+      "</div>" +
+    "</div>" +
+    '<div class="spr-acc-controls">' +
+      '<button type="button" class="sim-button-secondary" onclick="sprExpandAll(true)">Expand all</button>' +
+      '<button type="button" class="sim-button-secondary" onclick="sprExpandAll(false)">Collapse all</button>' +
+    "</div>";
+
+  const cards = blocks.map((b, i) =>
+    '<div class="spr-acc">' +
+      '<div class="spr-acc-head" id="sprAccHead' + i + '" onclick="toggleSprCustomer(' + i + ')">' +
+        '<div class="spr-acc-caret">&#9656;</div>' +
+        '<div class="spr-acc-name">' + escapeHtmlClient(b.customer) + "</div>" +
+        '<div class="spr-acc-tags">' +
+          (b.issueCount
+            ? '<span class="spr-tag spr-tag-issues">' + b.issueCount + " issue" +
+              (b.issueCount === 1 ? "" : "s") + "</span>"
+            : '<span class="spr-tag spr-tag-blank">No commentary</span>') +
+        "</div>" +
+        '<div class="spr-acc-metrics">' +
+          "<span>AR <strong>" + euro(b.totalAR || 0) + "</strong></span>" +
+          "<span>Overdue <strong>" + euro(b.overdue || 0) + "</strong></span>" +
+          "<span>GT90 <strong>" + euro(b.gt90 || 0) + "</strong></span>" +
+        "</div>" +
+      "</div>" +
+      '<div class="spr-acc-body" id="sprAcc' + i + '" style="display:none;">' + b.html + "</div>" +
+    "</div>").join("");
+
+  return strip + cards;
+}
+
+/* One account's review. Returns the markup plus the few figures the country
+   view needs for its summary line, so nothing is computed twice. */
+function buildSprBlock(country, customer, month) {
 
   // Find this account's commentary. If no month is chosen, take the latest one
   // available for that account.
@@ -4070,7 +4239,7 @@ function renderSpr() {
   const shownMonth = entry && entry.month ? entry.month
                     : (dataQuality && dataQuality.latestMonth) || "";
 
-  box.innerHTML =
+  const html =
     '<div class="spr-title-bar">' + escapeHtmlClient(customer) + " " + escapeHtmlClient(country) +
       " &ndash; ACCOUNT BUSINESS REVIEW</div>" +
     '<div class="spr-date-line">' + (shownMonth ? "Period: " + escapeHtmlClient(shownMonth) : "") + "</div>" +
@@ -4082,6 +4251,15 @@ function renderSpr() {
     arTable +
     (entry ? "" : '<div class="spr-missing-note">No commentary has been entered yet for this account. ' +
                   "Collectors can add it in the SPR sheet of the input workbook.</div>");
+
+  return {
+    html: html,
+    hasCommentary: !!entry,
+    issueCount: issueList.length,
+    totalAR: ar ? ar.totalAR : 0,
+    overdue: ar ? ar.overdue : 0,
+    gt90: ar ? ar.gt90 : 0
+  };
 }
 
 function init() {
