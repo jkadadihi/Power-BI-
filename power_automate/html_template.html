@@ -465,6 +465,13 @@ h1 {
 .spr-country-metrics div { display: flex; flex-direction: column; }
 .spr-country-metrics span { font-size: 11px; opacity: .75; text-transform: uppercase; letter-spacing: .4px; }
 .spr-country-metrics strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.spr-country-pct {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: .8;
+  margin-left: 7px;
+}
 .spr-cov-full { color: #6ee7a0; }
 .spr-cov-part { color: #ffd166; }
 .spr-cov-none { color: #ff9d9d; }
@@ -4088,9 +4095,15 @@ function renderSprCountry(country, month) {
   const totals = blocks.reduce((acc, b) => {
     acc.totalAR += b.totalAR || 0;
     acc.overdue += b.overdue || 0;
+    acc.gt60 += b.gt60 || 0;
     acc.gt90 += b.gt90 || 0;
     return acc;
-  }, { totalAR: 0, overdue: 0, gt90: 0 });
+  }, { totalAR: 0, overdue: 0, gt60: 0, gt90: 0 });
+
+  // Country-level shares are computed from the country's own totals, not by
+  // averaging the customer percentages, so a small account cannot swing the
+  // figure the way a straight average of percentages would.
+  const countryShare = (part) => totals.totalAR !== 0 ? part / totals.totalAR : 0;
 
   const coverageClass = withCommentary === blocks.length ? "spr-cov-full"
                       : withCommentary === 0 ? "spr-cov-none" : "spr-cov-part";
@@ -4102,8 +4115,12 @@ function renderSprCountry(country, month) {
         (blocks.length === 1 ? "" : "s") + "</div></div>" +
       "<div class='spr-country-metrics'>" +
         "<div><span>Total AR</span><strong>" + euro(totals.totalAR) + "</strong></div>" +
-        "<div><span>Overdue</span><strong>" + euro(totals.overdue) + "</strong></div>" +
-        "<div><span>GT90</span><strong>" + euro(totals.gt90) + "</strong></div>" +
+        "<div><span>Overdue</span><strong>" + euro(totals.overdue) +
+          '<em class="spr-country-pct">' + pct(countryShare(totals.overdue)) + "</em></strong></div>" +
+        "<div><span>GT60</span><strong>" + euro(totals.gt60) +
+          '<em class="spr-country-pct">' + pct(countryShare(totals.gt60)) + "</em></strong></div>" +
+        "<div><span>GT90</span><strong>" + euro(totals.gt90) +
+          '<em class="spr-country-pct">' + pct(countryShare(totals.gt90)) + "</em></strong></div>" +
         '<div><span>Commentary</span><strong class="' + coverageClass + '">' +
           withCommentary + " of " + blocks.length + "</strong></div>" +
       "</div>" +
@@ -4299,6 +4316,7 @@ function buildSprBlock(country, customer, month) {
     issueCount: issueList.length,
     totalAR: ar ? ar.totalAR : 0,
     overdue: ar ? ar.overdue : 0,
+    gt60: ar ? ar.gt60 : 0,
     gt90: ar ? ar.gt90 : 0
   };
 }
