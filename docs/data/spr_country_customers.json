@@ -1,0 +1,154 @@
+[
+ {
+  "country": "AR",
+  "customers": [
+   "Arrow Electronics",
+   "Halliburton",
+   "Hpe",
+   "Hpi",
+   "Lenovo/Motorola",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "BM",
+  "customers": [
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "BO",
+  "customers": [
+   "Halliburton",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "BR",
+  "customers": [
+   "Arrow Electronics",
+   "Halliburton",
+   "Hpi",
+   "Lenovo/Motorola",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "CA",
+  "customers": [
+   "Amazon",
+   "Halliburton",
+   "Honeywell",
+   "SLB/Cameron",
+   "TE Connectivity",
+   "Texas Instruments"
+  ]
+ },
+ {
+  "country": "CL",
+  "customers": [
+   "Hpe",
+   "Hpi",
+   "Lenovo/Motorola",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "CO",
+  "customers": [
+   "Halliburton",
+   "Hpe",
+   "Hpi",
+   "Lenovo/Motorola",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "CR",
+  "customers": [
+   "Amazon",
+   "Hpe",
+   "Hpi"
+  ]
+ },
+ {
+  "country": "EC",
+  "customers": [
+   "Halliburton",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "GT",
+  "customers": [
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "MX",
+  "customers": [
+   "Arrow Electronics",
+   "Dell Technologies",
+   "Halliburton",
+   "Hpe",
+   "Hpi",
+   "Lenovo/Motorola",
+   "Nokia",
+   "TE Connectivity",
+   "Texas Instruments"
+  ]
+ },
+ {
+  "country": "PA",
+  "customers": [
+   "Halliburton"
+  ]
+ },
+ {
+  "country": "PE",
+  "customers": [
+   "Hpe",
+   "Hpi",
+   "Lenovo/Motorola",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "TT",
+  "customers": [
+   "Halliburton",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "US",
+  "customers": [
+   "Amazon",
+   "Arrow Electronics",
+   "Baker Hughes",
+   "Dell Technologies",
+   "Halliburton",
+   "Honeywell",
+   "Hpe",
+   "Hpi",
+   "Lenovo/Motorola",
+   "Nokia",
+   "SLB/Cameron",
+   "TE Connectivity",
+   "Texas Instruments"
+  ]
+ },
+ {
+  "country": "UY",
+  "customers": [
+   "Lenovo/Motorola",
+   "SLB/Cameron"
+  ]
+ },
+ {
+  "country": "XC",
+  "customers": [
+   "SLB/Cameron"
+  ]
+ }
+]
