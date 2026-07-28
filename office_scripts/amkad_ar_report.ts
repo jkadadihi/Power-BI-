@@ -382,6 +382,70 @@ function main(workbook: ExcelScript.Workbook) {
     return out;
   }
 
+  /**
+   * Reads MonthEndAR: the latest CLOSED month's figures, pulled from the Debits
+   * source by a Power Query in this workbook (see power_query/spr_month_end_ar.m).
+   *
+   * SPRs are reported on month-end numbers, but the daily pipeline only has
+   * daily snapshots, and month close can shift by days, so the last daily
+   * snapshot of a month is not the close. This gives the SPR tab the real
+   * closed-month position. Every other tab keeps using the daily data.
+   *
+   * Optional: if the table does not exist the result is empty and the SPR tab
+   * falls back to the daily snapshot, labelled as such.
+   */
+  function readMonthEndAR(): Record<string, string | number>[] {
+    const table = getTableOrNull("MonthEndAR");
+    if (!table) return [];
+
+    const headers = table.getHeaderRowRange().getValues()[0].map(h => text(h).trim());
+    const idxOf = (label: string): number => headers.indexOf(label);
+
+    const iMonth = idxOf("Month");
+    const iCountry = idxOf("Country");
+    const iCustomer = idxOf("Customer");
+    if (iCountry === -1 || iCustomer === -1) return [];
+
+    const iTotalAR = idxOf("Total AR");
+    const iOverdue = idxOf("Overdue");
+    const iGT60 = idxOf("GT60");
+    const iGT90 = idxOf("GT90");
+    const iUAC = idxOf("Total UAC");
+    const iGross = idxOf("Gross Sales");
+    const iPayments = idxOf("Total Payments");
+
+    const nbr = (row: (string | number | boolean)[], i: number): number => {
+      if (i === -1) return 0;
+      const n = Number(row[i]);
+      return isFinite(n) ? n : 0;
+    };
+
+    const out: Record<string, string | number>[] = [];
+    getTableValuesSafe(table).forEach(row => {
+      const country = text(row[iCountry]);
+      const customer = text(row[iCustomer]);
+      if (!country || !customer) return;
+
+      const totalAR = nbr(row, iTotalAR);
+      const overdue = nbr(row, iOverdue);
+      out.push({
+        month: iMonth === -1 ? "" : text(row[iMonth]),
+        country: country,
+        customer: customer,
+        totalAR: totalAR,
+        overdue: overdue,
+        overduePct: totalAR !== 0 ? overdue / totalAR : 0,
+        gt60: nbr(row, iGT60),
+        gt90: nbr(row, iGT90),
+        uac: nbr(row, iUAC),
+        grossSales: nbr(row, iGross),
+        payments: nbr(row, iPayments)
+      });
+    });
+
+    return out;
+  }
+
   function readFieldMapping(): FieldMap {
     const table = getTableOrNull("FieldMappingTbl");
     if (!table) return {};
@@ -1436,6 +1500,10 @@ function main(workbook: ExcelScript.Workbook) {
     // Collector-maintained SPR commentary (Main Issues / Actions / cash
     // forecasting) per Month + Country + Customer, kept as history.
     SprCommentaryJson: JSON.stringify(readSprCommentary()),
+    // Latest closed month's figures for the SPR tab, so the review shows a real
+    // month-end position rather than a mid-month daily snapshot. Empty if the
+    // MonthEndAR query has not been set up, in which case the tab falls back.
+    MonthEndARJson: JSON.stringify(readMonthEndAR()),
     // The actual resolved threshold values (from ReportConfigTbl, or the
     // fallback defaults if unset) — sent so the report's client-side
     // "Edit thresholds" panel starts from what's really configured, not a

@@ -428,6 +428,29 @@ h1 {
   font-weight: 700;
   color: var(--dhl-red);
 }
+/* States plainly which basis the financials are on. SPRs are month-end
+   figures, so a daily snapshot standing in for one must never look like a
+   close. */
+.spr-basis {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  vertical-align: middle;
+}
+.spr-basis-eom {
+  background: rgba(12,163,12,0.12);
+  color: var(--status-good);
+  border: 1px solid rgba(12,163,12,0.28);
+}
+.spr-basis-daily {
+  background: rgba(250,178,25,0.16);
+  color: #8a6100;
+  border: 1px solid rgba(250,178,25,0.4);
+}
 .spr-forecast-table {
   width: 100%;
   border-collapse: collapse;
@@ -1804,6 +1827,7 @@ const customerMoMData = @{outputs('Run_script')?['body/result']?['CustomerMoMJso
 const dataQuality = @{outputs('Run_script')?['body/result']?['DataQualityJson']};
 const configuredThresholds = @{outputs('Run_script')?['body/result']?['ThresholdsJson']};
 const sprCommentaryData = @{outputs('Run_script')?['body/result']?['SprCommentaryJson']};
+const monthEndARData = @{outputs('Run_script')?['body/result']?['MonthEndARJson']};
 
 function euro(value) {
   if (!isFinite(value)) return "€0";
@@ -3945,9 +3969,28 @@ function renderSpr() {
     entry = matches.slice().sort((a, b) => String(a.month).localeCompare(String(b.month))).pop();
   }
 
-  // AR figures for the same account, from the report's own data.
+  // AR figures for the same account. SPRs are reported on month-end numbers, so
+  // prefer the closed-month figures from MonthEndAR when they cover the month
+  // being shown. Month close can shift by days, so the last daily snapshot of a
+  // month is not the close and must not be passed off as it. Fall back to the
+  // daily snapshot only when there is no month-end row, and say so on screen.
   let ar = null;
-  if (typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
+  let arBasis = "daily";
+  let arBasisMonth = "";
+
+  const monthEndRows = (typeof monthEndARData !== "undefined" && monthEndARData) ? monthEndARData : [];
+  const meMatches = monthEndRows.filter(r => r.country === country && r.customer === customer);
+  // entry is resolved above: it is the commentary row for the month on screen.
+  const wantMonth = (entry && entry.month) ? String(entry.month) : "";
+  const me = wantMonth
+    ? meMatches.filter(r => String(r.month) === wantMonth)[0]
+    : meMatches[0];
+
+  if (me) {
+    ar = me;
+    arBasis = "monthEnd";
+    arBasisMonth = String(me.month || "");
+  } else if (typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
     ar = customerDrilldownData.filter(r => r.country === country && r.customer === customer)[0] || null;
   }
 
@@ -3998,8 +4041,17 @@ function renderSpr() {
           : '<div style="padding:14px 16px;" class="empty">Not yet entered for this cycle.</div>') +
       "</div></div>";
 
+  const arBasisLabel = arBasis === "monthEnd"
+    ? '<span class="spr-basis spr-basis-eom">' +
+        escapeHtmlClient(arBasisMonth) + " month-end close</span>"
+    : '<span class="spr-basis spr-basis-daily">Daily snapshot' +
+        ((dataQuality && dataQuality.latestSnapshotDate)
+          ? " as at " + escapeHtmlClient(dataQuality.latestSnapshotDate) : "") +
+        ", not a month-end close</span>";
+
   const arTable = ar
-    ? '<div class="customer-table-wrapper"><div class="customer-table-title">Financial Performance</div>' +
+    ? '<div class="customer-table-wrapper"><div class="customer-table-title">Financial Performance ' +
+      arBasisLabel + "</div>" +
       '<table class="customer-matrix"><thead><tr>' +
         "<th>Total AR</th><th>Overdue</th><th>Overdue %</th><th>GT60</th><th>GT90</th><th>UAC</th>" +
       "</tr></thead><tbody><tr>" +
