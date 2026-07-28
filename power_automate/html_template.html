@@ -417,6 +417,17 @@ h1 {
   color: var(--ink-soft);
   font-style: italic;
 }
+/* One entry per issue, numbered so MAIN ISSUES item n lines up with ACTIONS item n. */
+.spr-item {
+  padding-left: 22px;
+  text-indent: -22px;
+  margin-bottom: 11px;
+}
+.spr-item:last-child { margin-bottom: 0; }
+.spr-item-num {
+  font-weight: 700;
+  color: var(--dhl-red);
+}
 .spr-forecast-table {
   width: 100%;
   border-collapse: collapse;
@@ -3855,10 +3866,11 @@ function resetThresholdsToConfigured() {
 /* ------------------------------------------------------------------
    SPR — Account Business Review, one customer at a time.
 
-   Commentary (Main Issues / Actions / cash forecasting) comes from the
-   SPRCommentaryTbl the collectors maintain in the input workbook, keyed by
-   Month + Country + Customer so past cycles are kept rather than overwritten.
-   The AR figures come from the report's own customer drill-down data.
+   Commentary comes from the per-country SPR sheets collectors maintain in the
+   input workbook: SPRIssues_<CC> (one row per issue, paired with its action)
+   and SPRForecast_<CC> (the cash figures). The script merges them into one
+   record per Month + Country + Customer, so past cycles are kept rather than
+   overwritten. The AR figures come from the report's own drill-down data.
 ------------------------------------------------------------------ */
 function sprRows() {
   return (typeof sprCommentaryData !== "undefined" && sprCommentaryData) ? sprCommentaryData : [];
@@ -3939,12 +3951,30 @@ function renderSpr() {
     ar = customerDrilldownData.filter(r => r.country === country && r.customer === customer)[0] || null;
   }
 
-  const panel = (title, value) => {
-    const empty = !value || !String(value).trim();
+  // Issues and actions are captured one row per issue, so render them as two
+  // matching numbered lists: item 3 under MAIN ISSUES is the same item 3 under
+  // ACTIONS. That keeps each issue paired with its update while preserving the
+  // side-by-side layout the review deck uses.
+  const issueList = (entry && Array.isArray(entry.issues)) ? entry.issues : [];
+
+  const numberedPanel = (title, field) => {
+    const items = issueList
+      .map(it => (it && it[field] ? String(it[field]).trim() : ""))
+      .map((txt, i) => ({ n: i + 1, txt: txt }))
+      .filter(x => x.txt);
+
+    if (!items.length) {
+      return '<div class="spr-panel">' +
+               '<div class="spr-panel-head">' + title + "</div>" +
+               '<div class="spr-panel-body empty">Not yet entered for this cycle.</div>' +
+             "</div>";
+    }
     return '<div class="spr-panel">' +
              '<div class="spr-panel-head">' + title + "</div>" +
-             '<div class="spr-panel-body' + (empty ? " empty" : "") + '">' +
-               (empty ? "Not yet entered for this cycle." : escapeHtmlClient(value)) +
+             '<div class="spr-panel-body">' +
+               items.map(x =>
+                 '<div class="spr-item"><span class="spr-item-num">' + x.n + ")</span> " +
+                 escapeHtmlClient(x.txt) + "</div>").join("") +
              "</div></div>";
   };
 
@@ -3993,8 +4023,8 @@ function renderSpr() {
       " &ndash; ACCOUNT BUSINESS REVIEW</div>" +
     '<div class="spr-date-line">' + (shownMonth ? "Period: " + escapeHtmlClient(shownMonth) : "") + "</div>" +
     '<div class="spr-grid">' +
-      panel("MAIN ISSUES", entry ? entry.mainIssues : "") +
-      panel("ACTIONS", entry ? entry.actions : "") +
+      numberedPanel("MAIN ISSUES", "issue") +
+      numberedPanel("ACTIONS", "action") +
       forecastPanel +
     "</div>" +
     arTable +

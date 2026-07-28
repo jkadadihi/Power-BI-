@@ -225,65 +225,157 @@ function main(workbook: ExcelScript.Workbook) {
   }
 
   /**
-   * Reads the SPR (Account Business Review) commentary table that collectors
-   * maintain by hand: Main Issues, Actions, and the cash-forecasting figures,
-   * one row per Month + Country + Customer.
+   * Reads the SPR (Account Business Review) commentary that collectors maintain
+   * by hand, and merges it into one record per Month + Country + Customer.
    *
-   * History is kept by month, so past cycles stay readable rather than being
-   * overwritten. Returns every row; the report picks the right one client-side
-   * based on the selected country/customer/month.
+   * The commentary lives on one worksheet per country, each holding two tables:
    *
-   * The table is optional. If SPRCommentaryTbl does not exist yet, this simply
-   * returns an empty list and the SPR tab shows "no commentary entered".
+   *   SPRIssues_<CC>    Month | Country | Customer | Issue | Action
+   *                     One row per issue, so a customer with four issues is
+   *                     four short rows rather than one cell full of paragraphs.
+   *   SPRForecast_<CC>  Month | Country | Customer | the five cash figures
+   *                     One row per customer.
+   *
+   * Tables are found by NAME PREFIX rather than a hardcoded list, so adding a
+   * new country later means adding a sheet that follows the pattern, with no
+   * change here. Excel requires table names to be unique per workbook, which is
+   * why each carries the country suffix.
+   *
+   * Everything is optional. If no SPR tables exist yet the result is empty and
+   * the SPR tab simply shows that no commentary has been entered.
    */
-  function readSprCommentary(): Record<string, string | number>[] {
-    const table = getTableOrNull("SPRCommentaryTbl");
-    if (!table) return [];
+  function readSprCommentary(): Record<string, string | number | Record<string, string>[]>[] {
+    const ISSUES_PREFIX = "SPRIssues_";
+    const FORECAST_PREFIX = "SPRForecast_";
 
-    const headers = table.getHeaderRowRange().getValues()[0].map(h => text(h).trim());
-    const idxOf = (name: string): number => headers.indexOf(name);
-
-    const col = {
-      month: idxOf("Month"),
-      country: idxOf("Country"),
-      customer: idxOf("Customer"),
-      mainIssues: idxOf("Main Issues"),
-      actions: idxOf("Actions"),
-      pendingApplication: idxOf("Payments In House Pending Application"),
-      expectedPayments: idxOf("Expected Payments"),
-      forecastOverdue: idxOf("Forecasted Overdue EOM"),
-      forecastGT60: idxOf("Forecasted GT60 EOM"),
-      forecastGT90: idxOf("Forecasted GT90 EOM")
+    type SprRecord = {
+      month: string;
+      country: string;
+      customer: string;
+      issues: Record<string, string>[];
+      pendingApplication: number;
+      expectedPayments: number;
+      forecastOverdue: number;
+      forecastGT60: number;
+      forecastGT90: number;
     };
 
-    // Country + Customer are the minimum needed to attach commentary to a row.
-    if (col.country === -1 || col.customer === -1) return [];
+    const byKey: { [key: string]: SprRecord } = {};
 
-    const num = (row: (string | number | boolean)[], i: number): number => {
-      if (i === -1) return 0;
-      const n = Number(row[i]);
-      return isFinite(n) ? n : 0;
-    };
-    const str = (row: (string | number | boolean)[], i: number): string =>
-      i === -1 ? "" : text(row[i]);
+    function keyFor(month: string, country: string, customer: string): string {
+      return month + "||" + country.toUpperCase() + "||" + customer.toUpperCase();
+    }
 
-    const out: Record<string, string | number>[] = [];
-    getTableValuesSafe(table).forEach(row => {
-      const customer = str(row, col.customer);
-      const country = str(row, col.country);
-      if (!customer || !country) return; // skip blank rows
+    function recordFor(month: string, country: string, customer: string): SprRecord {
+      const k = keyFor(month, country, customer);
+      if (!byKey[k]) {
+        byKey[k] = {
+          month: month,
+          country: country,
+          customer: customer,
+          issues: [],
+          pendingApplication: 0,
+          expectedPayments: 0,
+          forecastOverdue: 0,
+          forecastGT60: 0,
+          forecastGT90: 0
+        };
+      }
+      return byKey[k];
+    }
 
+    let tables: ExcelScript.Table[] = [];
+    try {
+      tables = workbook.getTables();
+    } catch (e) {
+      return [];
+    }
+
+    tables.forEach(table => {
+      let name = "";
+      try {
+        name = table.getName();
+      } catch (e) {
+        return;
+      }
+
+      const isIssues = name.indexOf(ISSUES_PREFIX) === 0;
+      const isForecast = name.indexOf(FORECAST_PREFIX) === 0;
+      if (!isIssues && !isForecast) return;
+
+      const headers = table.getHeaderRowRange().getValues()[0].map(h => text(h).trim());
+      const idxOf = (label: string): number => headers.indexOf(label);
+
+      const iMonth = idxOf("Month");
+      const iCountry = idxOf("Country");
+      const iCustomer = idxOf("Customer");
+      // Country + Customer are the minimum needed to attach commentary to a row.
+      if (iCountry === -1 || iCustomer === -1) return;
+
+      const str = (row: (string | number | boolean)[], i: number): string =>
+        i === -1 ? "" : text(row[i]);
+      const nbr = (row: (string | number | boolean)[], i: number): number => {
+        if (i === -1) return 0;
+        const n = Number(row[i]);
+        return isFinite(n) ? n : 0;
+      };
+
+      if (isIssues) {
+        const iIssue = idxOf("Issue");
+        const iAction = idxOf("Action");
+        getTableValuesSafe(table).forEach(row => {
+          const country = str(row, iCountry);
+          const customer = str(row, iCustomer);
+          if (!country || !customer) return;
+
+          const issue = str(row, iIssue);
+          const action = str(row, iAction);
+          // The sheets ship pre-seeded with blank issue rows per customer, so
+          // rows with nothing typed yet are skipped rather than shown as empty
+          // bullets. The record is still created so the forecast can attach.
+          const rec = recordFor(str(row, iMonth), country, customer);
+          if (!issue && !action) return;
+          rec.issues.push({ issue: issue, action: action });
+        });
+      } else {
+        const iPending = idxOf("Payments In House Pending");
+        const iExpected = idxOf("Expected Payments");
+        const iOverdue = idxOf("Forecasted Overdue EOM");
+        const iGT60 = idxOf("Forecasted GT60 EOM");
+        const iGT90 = idxOf("Forecasted GT90 EOM");
+        getTableValuesSafe(table).forEach(row => {
+          const country = str(row, iCountry);
+          const customer = str(row, iCustomer);
+          if (!country || !customer) return;
+
+          const rec = recordFor(str(row, iMonth), country, customer);
+          rec.pendingApplication = nbr(row, iPending);
+          rec.expectedPayments = nbr(row, iExpected);
+          rec.forecastOverdue = nbr(row, iOverdue);
+          rec.forecastGT60 = nbr(row, iGT60);
+          rec.forecastGT90 = nbr(row, iGT90);
+        });
+      }
+    });
+
+    // Only send records that actually carry something, so the report can tell
+    // "nothing entered yet" from "entered and genuinely zero".
+    const out: Record<string, string | number | Record<string, string>[]>[] = [];
+    Object.keys(byKey).forEach(k => {
+      const r = byKey[k];
+      const hasForecast = r.pendingApplication !== 0 || r.expectedPayments !== 0 ||
+        r.forecastOverdue !== 0 || r.forecastGT60 !== 0 || r.forecastGT90 !== 0;
+      if (r.issues.length === 0 && !hasForecast) return;
       out.push({
-        month: str(row, col.month),
-        country: country,
-        customer: customer,
-        mainIssues: str(row, col.mainIssues),
-        actions: str(row, col.actions),
-        pendingApplication: num(row, col.pendingApplication),
-        expectedPayments: num(row, col.expectedPayments),
-        forecastOverdue: num(row, col.forecastOverdue),
-        forecastGT60: num(row, col.forecastGT60),
-        forecastGT90: num(row, col.forecastGT90)
+        month: r.month,
+        country: r.country,
+        customer: r.customer,
+        issues: r.issues,
+        pendingApplication: r.pendingApplication,
+        expectedPayments: r.expectedPayments,
+        forecastOverdue: r.forecastOverdue,
+        forecastGT60: r.forecastGT60,
+        forecastGT90: r.forecastGT90
       });
     });
 
