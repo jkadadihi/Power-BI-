@@ -3998,21 +3998,35 @@ function initSpr() {
   });
 }
 
+/* Commentary is typed by hand, so "Nokia", "nokia" and "Nokia " must resolve to
+   the same account. Matching on a normalized key stops a stray space or capital
+   from silently splitting one customer into two, with the commentary attached
+   to neither. Display always uses the AR data's spelling. */
+function sprKey(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/\s+/g, " ").trim().toUpperCase();
+}
+
 /* Every customer in a country, whether or not commentary exists yet, so the
    review can walk the whole country and blanks are visible rather than hidden. */
 function sprCustomersFor(country) {
+  const ck = sprKey(country);
   const names = [];
+  const seen = {};
+  const add = name => {
+    const k = sprKey(name);
+    if (!k || seen[k]) return;
+    seen[k] = true;
+    names.push(name);
+  };
+  // AR data first, so its spelling is the one shown.
   if (typeof customerDrilldownData !== "undefined" && customerDrilldownData) {
     customerDrilldownData.forEach(r => {
-      if (r.country === country && r.customer && names.indexOf(r.customer) === -1) {
-        names.push(r.customer);
-      }
+      if (sprKey(r.country) === ck) add(r.customer);
     });
   }
   sprRows().forEach(r => {
-    if (r.country === country && r.customer && names.indexOf(r.customer) === -1) {
-      names.push(r.customer);
-    }
+    if (sprKey(r.country) === ck) add(r.customer);
   });
   return names;
 }
@@ -4156,10 +4170,14 @@ function renderSprCountry(country, month) {
 /* One account's review. Returns the markup plus the few figures the country
    view needs for its summary line, so nothing is computed twice. */
 function buildSprBlock(country, customer, month) {
+  // Normalized keys, so hand-typed commentary still attaches when the spelling
+  // differs only by case or spacing.
+  const ck = sprKey(country);
+  const uk = sprKey(customer);
 
   // Find this account's commentary. If no month is chosen, take the latest one
   // available for that account.
-  const matches = sprRows().filter(r => r.country === country && r.customer === customer);
+  const matches = sprRows().filter(r => sprKey(r.country) === ck && sprKey(r.customer) === uk);
   let entry = null;
   if (month) {
     entry = matches.filter(r => r.month === month)[0] || null;
@@ -4174,7 +4192,7 @@ function buildSprBlock(country, customer, month) {
   // side by side lets the reviewer see the movement since close instead of
   // having to pick one number and hope it is the right one.
   const monthEndRows = (typeof monthEndARData !== "undefined" && monthEndARData) ? monthEndARData : [];
-  const meMatches = monthEndRows.filter(r => r.country === country && r.customer === customer);
+  const meMatches = monthEndRows.filter(r => sprKey(r.country) === ck && sprKey(r.customer) === uk);
   // entry is resolved above: it is the commentary row for the month on screen.
   const wantMonth = (entry && entry.month) ? String(entry.month) : "";
   const me = wantMonth
@@ -4182,7 +4200,7 @@ function buildSprBlock(country, customer, month) {
     : meMatches[0];
 
   const dailyRow = (typeof customerDrilldownData !== "undefined" && customerDrilldownData)
-    ? (customerDrilldownData.filter(r => r.country === country && r.customer === customer)[0] || null)
+    ? (customerDrilldownData.filter(r => sprKey(r.country) === ck && sprKey(r.customer) === uk)[0] || null)
     : null;
 
   // Summary figures follow the month-end basis when it exists, since that is
