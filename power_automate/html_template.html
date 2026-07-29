@@ -4194,10 +4194,21 @@ function buildSprBlock(country, customer, month) {
   const monthEndRows = (typeof monthEndARData !== "undefined" && monthEndARData) ? monthEndARData : [];
   const meMatches = monthEndRows.filter(r => sprKey(r.country) === ck && sprKey(r.customer) === uk);
   // entry is resolved above: it is the commentary row for the month on screen.
+  // MonthEndAR only ever holds the latest CLOSED month, while commentary is
+  // written during the current month, so the two months usually differ. Prefer
+  // an exact match, but fall back to the most recent close rather than dropping
+  // the table: a strict match would hide the close for every account that has
+  // commentary, which is the opposite of what the review needs. When the two
+  // periods differ, the badge and a note below say so.
   const wantMonth = (entry && entry.month) ? String(entry.month) : "";
-  const me = wantMonth
-    ? meMatches.filter(r => String(r.month) === wantMonth)[0]
-    : meMatches[0];
+  const meExact = wantMonth
+    ? (meMatches.filter(r => String(r.month) === wantMonth)[0] || null)
+    : null;
+  const meLatest = meMatches.length
+    ? meMatches.slice().sort((a, b) => String(a.month).localeCompare(String(b.month))).pop()
+    : null;
+  const me = meExact || meLatest;
+  const meIsDifferentPeriod = !!(me && wantMonth && String(me.month) !== wantMonth);
 
   const dailyRow = (typeof customerDrilldownData !== "undefined" && customerDrilldownData)
     ? (customerDrilldownData.filter(r => sprKey(r.country) === ck && sprKey(r.customer) === uk)[0] || null)
@@ -4304,8 +4315,13 @@ function buildSprBlock(country, customer, month) {
   } else {
     if (!me) {
       arTable = '<div class="spr-missing-note" style="margin-bottom:10px;">No month-end close ' +
-        "figures available for this period, so only the daily position is shown. The SPR is " +
+        "figures available for this customer, so only the daily position is shown. The SPR is " +
         "normally reported on month-end numbers.</div>" + arTable;
+    } else if (meIsDifferentPeriod) {
+      arTable = '<div class="spr-missing-note" style="margin-bottom:10px;">Commentary is dated ' +
+        "<b>" + escapeHtmlClient(wantMonth) + "</b>, but the most recent close available is " +
+        "<b>" + escapeHtmlClient(String(me.month)) + "</b>, which is what the month-end table below " +
+        "shows. That is expected while the commentary month is still open.</div>" + arTable;
     }
     arTable += '<div class="spr-missing-note">Aging shown at the level the report data provides ' +
       "(Total AR, Overdue, GT60, GT90). The finer 0-30 / 31-60 / 61-90 / 91-180 / over-180 split and the " +
