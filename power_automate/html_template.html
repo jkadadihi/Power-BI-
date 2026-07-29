@@ -472,6 +472,44 @@ h1 {
   opacity: .8;
   margin-left: 7px;
 }
+/* States the basis every figure in this view is on, so a country total is
+   never read as month-end when it is current, or the other way round. */
+.spr-country-basis {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+.spr-country-basis.eom { background: rgba(12,163,12,0.22); color: #7ff0aa; }
+.spr-country-basis.daily { background: rgba(250,178,25,0.22); color: #ffd98a; }
+
+.spr-basis-switch {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.spr-basis-opt {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.spr-basis-opt.active {
+  background: var(--ink);
+  color: var(--surface);
+  border-color: var(--ink);
+}
+.spr-acc-nodata { font-size: 12px; color: var(--ink-soft); font-style: italic; }
 .spr-cov-full { color: #6ee7a0; }
 .spr-cov-part { color: #ffd166; }
 .spr-cov-none { color: #ff9d9d; }
@@ -4042,6 +4080,16 @@ function onSprCountryChange() {
   renderSpr();
 }
 
+/* Which basis the country view totals and sorts on. The SPR is reported on
+   month-end numbers, so that is the default; "Current" is there to compare
+   against where the accounts stand today. */
+var sprBasis = "eom";
+
+function setSprBasis(basis) {
+  sprBasis = (basis === "daily") ? "daily" : "eom";
+  renderSpr();
+}
+
 function toggleSprCustomer(idx) {
   const body = document.getElementById("sprAcc" + idx);
   const head = document.getElementById("sprAccHead" + idx);
@@ -4096,21 +4144,30 @@ function renderSprCountry(country, month) {
     return b;
   });
 
+  // Every figure in this view is stated on ONE basis, chosen here, so a country
+  // total can never be month-end for some accounts and current for others.
+  const basis = (sprBasis === "daily") ? "daily" : "eom";
+  const figOf = b => (basis === "eom" ? b.eomFig : b.dailyFig) || null;
+  const val = (b, field) => { const f = figOf(b); return f ? (f[field] || 0) : 0; };
+
+  const missingOnBasis = blocks.filter(b => !figOf(b)).length;
+  const eomMonth = (blocks.map(b => b.eomFig && b.eomFig.month).filter(Boolean)[0]) || "";
+
   // Largest GT90 first: the oldest money is the most critical, so the accounts
   // that need attention surface at the top without hunting for them. Total AR
   // breaks ties so the order stays stable when GT90 is equal (often zero).
   blocks.sort((a, b) => {
-    const d = (b.gt90 || 0) - (a.gt90 || 0);
+    const d = val(b, "gt90") - val(a, "gt90");
     if (d !== 0) return d;
-    return (b.totalAR || 0) - (a.totalAR || 0);
+    return val(b, "totalAR") - val(a, "totalAR");
   });
 
   const withCommentary = blocks.filter(b => b.hasCommentary).length;
   const totals = blocks.reduce((acc, b) => {
-    acc.totalAR += b.totalAR || 0;
-    acc.overdue += b.overdue || 0;
-    acc.gt60 += b.gt60 || 0;
-    acc.gt90 += b.gt90 || 0;
+    acc.totalAR += val(b, "totalAR");
+    acc.overdue += val(b, "overdue");
+    acc.gt60 += val(b, "gt60");
+    acc.gt90 += val(b, "gt90");
     return acc;
   }, { totalAR: 0, overdue: 0, gt60: 0, gt90: 0 });
 
@@ -4122,11 +4179,18 @@ function renderSprCountry(country, month) {
   const coverageClass = withCommentary === blocks.length ? "spr-cov-full"
                       : withCommentary === 0 ? "spr-cov-none" : "spr-cov-part";
 
+  const basisText = basis === "eom"
+    ? (eomMonth ? escapeHtmlClient(eomMonth) + " month-end close" : "Month-end close")
+    : "Current" + ((dataQuality && dataQuality.latestSnapshotDate)
+        ? " as at " + escapeHtmlClient(dataQuality.latestSnapshotDate) : "");
+
   const strip =
     '<div class="spr-country-bar">' +
       "<div><div class='spr-country-name'>" + escapeHtmlClient(country) +
         "</div><div class='spr-country-sub'>" + blocks.length + " account" +
-        (blocks.length === 1 ? "" : "s") + "</div></div>" +
+        (blocks.length === 1 ? "" : "s") + '</div>' +
+        '<div class="spr-country-basis' + (basis === "eom" ? " eom" : " daily") + '">' +
+          "All figures: " + basisText + "</div></div>" +
       "<div class='spr-country-metrics'>" +
         "<div><span>Total AR</span><strong>" + euro(totals.totalAR) + "</strong></div>" +
         "<div><span>Overdue</span><strong>" + euro(totals.overdue) +
@@ -4142,7 +4206,20 @@ function renderSprCountry(country, month) {
     '<div class="spr-acc-controls">' +
       '<button type="button" class="sim-button-secondary" onclick="sprExpandAll(true)">Expand all</button>' +
       '<button type="button" class="sim-button-secondary" onclick="sprExpandAll(false)">Collapse all</button>' +
-    "</div>";
+      '<span class="spr-basis-switch">Show figures on:' +
+        '<button type="button" class="spr-basis-opt' + (basis === "eom" ? " active" : "") +
+          '" onclick="setSprBasis(\'eom\')">Month-end close</button>' +
+        '<button type="button" class="spr-basis-opt' + (basis === "daily" ? " active" : "") +
+          '" onclick="setSprBasis(\'daily\')">Current</button>' +
+      "</span>" +
+    "</div>" +
+    (missingOnBasis
+      ? '<div class="spr-missing-note" style="margin:-4px 0 12px;">' + missingOnBasis +
+        " of " + blocks.length + " account" + (missingOnBasis === 1 ? " has" : "s have") +
+        " no " + (basis === "eom" ? "month-end close" : "current") +
+        " figures, so they count as zero in the totals above. Switch basis to compare." +
+        "</div>"
+      : "");
 
   const cards = blocks.map((b, i) =>
     '<div class="spr-acc">' +
@@ -4156,9 +4233,12 @@ function renderSprCountry(country, month) {
             : '<span class="spr-tag spr-tag-blank">No commentary</span>') +
         "</div>" +
         '<div class="spr-acc-metrics">' +
-          "<span>AR <strong>" + euro(b.totalAR || 0) + "</strong></span>" +
-          "<span>Overdue <strong>" + euro(b.overdue || 0) + "</strong></span>" +
-          "<span>GT90 <strong>" + euro(b.gt90 || 0) + "</strong></span>" +
+          (figOf(b)
+            ? "<span>AR <strong>" + euro(val(b, "totalAR")) + "</strong></span>" +
+              "<span>Overdue <strong>" + euro(val(b, "overdue")) + "</strong></span>" +
+              "<span>GT90 <strong>" + euro(val(b, "gt90")) + "</strong></span>"
+            : '<span class="spr-acc-nodata">No ' +
+              (basis === "eom" ? "month-end" : "current") + " figures</span>") +
         "</div>" +
       "</div>" +
       '<div class="spr-acc-body" id="sprAcc' + i + '" style="display:none;">' + b.html + "</div>" +
@@ -4214,8 +4294,10 @@ function buildSprBlock(country, customer, month) {
     ? (customerDrilldownData.filter(r => sprKey(r.country) === ck && sprKey(r.customer) === uk)[0] || null)
     : null;
 
-  // Summary figures follow the month-end basis when it exists, since that is
-  // what the review is reported on.
+  // The detail tables below show both bases. The summary figures handed back to
+  // the country view are kept SEPARATE rather than resolved to one here, so the
+  // country totals can be stated on a single declared basis instead of silently
+  // blending month-end for some accounts with current for others.
   const ar = me || dailyRow;
   const arBasisMonth = me ? String(me.month || "") : "";
 
@@ -4348,6 +4430,12 @@ function buildSprBlock(country, customer, month) {
     html: html,
     hasCommentary: !!entry,
     issueCount: issueList.length,
+    // Kept apart so the country view can total one basis at a time.
+    eomFig: me ? { totalAR: me.totalAR || 0, overdue: me.overdue || 0,
+                   gt60: me.gt60 || 0, gt90: me.gt90 || 0,
+                   month: String(me.month || "") } : null,
+    dailyFig: dailyRow ? { totalAR: dailyRow.totalAR || 0, overdue: dailyRow.overdue || 0,
+                           gt60: dailyRow.gt60 || 0, gt90: dailyRow.gt90 || 0 } : null,
     totalAR: ar ? ar.totalAR : 0,
     overdue: ar ? ar.overdue : 0,
     gt60: ar ? ar.gt60 : 0,
