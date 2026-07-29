@@ -11,17 +11,27 @@ Data Quality tab** of the report — it usually tells you what happened.
 
 ## 1. What this automation actually does
 
-It turns a daily Excel file into an interactive HTML dashboard, automatically.
+It builds a daily Excel file from the raw source, then turns that file into an
+interactive HTML dashboard, automatically. Nobody types anything in between.
 
 ```
-  Daily Excel file on SharePoint
-  (Daily_Performance_Report- <Month Day Year> AMKAD.xlsm)
+  Raw source report lands in "Cust_Sol Daily File" on SharePoint
+  (07132026AMKAD_Daily_Report.xlsx  →  MMDDYYYY in the name)
             │
+            │  STAGE 1 — the daily build (see 4F)
+            │  Office Scripts read that file, copy the previous daily file
+            │  forward, and append today's rows to its RawData table
+            ▼
+  Daily Excel file on SharePoint
+  (Daily_Performance_Report- <Month Day Year>  AMKAD.xlsm)
+            │
+            │  STAGE 2 — the report
             │  Power Query picks the LATEST file and reads its "RawData" table
             ▼
   RawData table in the working workbook
             │
             │  Office Script reads RawData, does the maths, builds JSON + HTML tables
+            │  (also reads the SPR sheets and MonthEndAR — see 4G)
             ▼
   JSON result ("result" object)
             │
@@ -29,6 +39,11 @@ It turns a daily Excel file into an interactive HTML dashboard, automatically.
             ▼
   Finished HTML report  →  emailed / saved / shared
 ```
+
+Stage 1 replaced a manual routine (open the emailed report, copy, paste into a
+template, calculate, copy two column ranges, refresh, Save As). Stage 2 was
+always automated. **The two stages are separate flows** — if the report looks
+stale, work out which stage is stuck before changing anything.
 
 **The golden rule:** the report can only ever show what is in `RawData`.
 If a number looks wrong, work **backwards** along that arrow chain — start at the
@@ -60,12 +75,19 @@ or whatever it has been merged into):
 
 | File | What it is | Where it runs |
 |---|---|---|
-| `power_query/…` (the M query) | Picks the latest daily file, loads its `RawData` | Excel → Power Query (Data → Queries) |
+| `power_query/custsol_rawdata.m` | Picks the latest daily file, loads its `RawData` | Excel → Power Query (Data → Queries) |
 | `office_scripts/amkad_ar_report.ts` | All the calculations + builds the tables/JSON | Excel Online → Automate → Code Editor |
 | `office_scripts/refresh_trigger.ts` | No-op script that forces the RawData refresh (see 4E) | Excel Online → Automate → Code Editor |
 | `power_automate/html_template.html` | The dashboard layout + charts + interactivity | Power Automate → the Compose/HTML action |
 | `power_automate/email_body.html` | The automated email body (see 4D) | Power Automate → Send an email (V2) |
+| `office_scripts/custsol_read_daily.ts` | Reads the raw source file, returns its rows as JSON (see 4F) | Excel Online → Automate → Code Editor |
+| `office_scripts/custsol_append_rawdata_eur.ts` | Appends those rows to the new daily file's `RawData` (see 4F) | Excel Online → Automate → Code Editor |
+| `power_query/spr_month_end_ar.m` | Pulls the latest **closed** month from Debits into `MonthEndAR` (see 4G) | Excel → Power Query, in the input workbook |
 | `docs/MAINTENANCE_GUIDE.md` | This guide | — |
+
+**Not files, but part of the system:** the per-country **SPR sheets** inside the
+input workbook (`SPR_US`, `SPR_MX`, …), each holding an `SPRIssues_<CC>` and an
+`SPRForecast_<CC>` table that collectors fill in by hand. See 4G.
 
 > **Deploying = copy the file's contents into the right tool and save/run.**
 > There is no "build" step. See Section 4 for the exact clicks per piece.
@@ -231,6 +253,109 @@ Automate run history) before assuming anything else is wrong.
 **If you ever need to tighten or loosen the gap:** shrink it once you've
 watched several runs and know how long the real-world refresh takes; widen
 it if "Rows used" on Data Quality ever looks stale right after a run.
+
+---
+
+### 4F. The daily file build (`office_scripts/custsol_*.ts`)
+
+This is Stage 1: it creates the `Daily_Performance_Report- … AMKAD.xlsm` file
+the rest of the system reads. It replaced a manual copy/paste routine.
+
+**How the flow runs, in order:**
+
+1. **Trigger** — a file is created in `…/Daily/Cust_Sol Daily File`.
+2. Two **Initialize variable** actions build the output name and month folder.
+3. **Get files** on the `Daily/<Month Year>` folder → **Filter array** →
+   **Compose** picks the newest existing daily file.
+4. **Get file content** + **Create file** copy that file forward under the new
+   name. This is what carries the full history into the new file.
+5. **Run script** `custsol read daily` on the **source** file → returns its rows
+   as JSON.
+6. **Run script** `custsol append rawdata eur` on the **new** file, with that
+   JSON as the `sourceJson` parameter → appends the rows to `RawData`.
+
+**Why two scripts:** an Office Script can only touch the workbook it runs on, so
+it cannot read the source file and write the daily file in one pass. Power
+Automate carries the JSON between them.
+
+**The output file is named from the SOURCE file's date, not today's.** The
+source is named `MMDDYYYY…`, and both variables parse that:
+
+```
+formatDateTime(concat(substring(triggerOutputs()?['body/{Name}'],4,4),'-',
+  substring(triggerOutputs()?['body/{Name}'],0,2),'-',
+  substring(triggerOutputs()?['body/{Name}'],2,2)), 'MMMM d yyyy')
+```
+
+This matters because it makes **backfilling** work: re-trigger on an old source
+file and the output gets that day's correct name. It also means a **misnamed
+source file fails the run** rather than silently producing a wrongly dated file
+— that is deliberate, and the reason to keep flow-failure notifications on.
+
+**Safety built into the scripts:**
+
+- The append **skips rows already present** (matched on Date + Country +
+  Customer), so re-running the same day cannot double-count. Check
+  `skippedDuplicates` in the last action's output.
+- Rows whose **EUR columns are blank** (which happens for a day or two after
+  month close) are appended anyway and counted in `missingEuroRows`, rather
+  than failing the run.
+- Columns are matched **by header name**, so reordering columns in the source
+  is harmless; renaming one is not.
+
+**If a day is missed:** nothing is lost — the source file stays in its folder.
+Re-trigger the flow on that file and it will produce the correctly dated
+output. See the "missed day" entry in Section 5 for when this actually matters.
+
+---
+
+### 4G. The SPR tab (collector commentary + month-end figures)
+
+The SPR tab shows an Account Business Review per customer: Main Issues,
+Actions, cash forecasting, and the AR figures. It has two inputs.
+
+**1 · The commentary — per-country sheets in the input workbook**
+
+Each country has a sheet (`SPR_US`, `SPR_MX`, …) holding two tables:
+
+| Table | Columns | One row per |
+|---|---|---|
+| `SPRIssues_<CC>` | Month, Country, Customer, Issue, Action | issue |
+| `SPRForecast_<CC>` | Month, Country, Customer, + the 5 cash figures | customer |
+
+Issues are one row each rather than one big cell, so nobody types paragraphs
+into a spreadsheet cell. `Month` is `YYYY-MM`. History is kept by month: to
+start a new cycle, copy the rows down and change the Month.
+
+The report finds these tables **by name prefix**, so **adding a new country
+needs no code change** — create a sheet with tables named `SPRIssues_XX` and
+`SPRForecast_XX` and it appears. Adding a **new customer** to an existing
+country needs nothing at all: once it shows in the AR data it appears in the
+list, tagged "No commentary" until someone writes some.
+
+Customer and country names are matched **ignoring case and extra spaces**, so
+`nokia` and `Nokia ` still attach. Genuinely different names
+(`Nokia` vs `Nokia Corp`) remain separate accounts, by design.
+
+**2 · The month-end figures — `MonthEndAR`**
+
+SPRs are reported on month-end numbers, but the daily pipeline only has daily
+snapshots, and **month close can shift by days**, so the last daily snapshot of
+a month is *not* the close. `power_query/spr_month_end_ar.m` pulls the latest
+**closed** month from the Debits source into a `MonthEndAR` table in the input
+workbook, and the report reads it.
+
+- Requires a text parameter `SharePointSite_Url`.
+- Query name **and** loaded table name must both be `MonthEndAR`.
+- It holds **one month** — the latest close. Each refresh replaces it.
+
+**What the tab shows:** every account lists Financial Performance twice —
+month-end close above, daily/current below — each labelled with the table it
+was read from. The country strip totals **one declared basis** (switchable
+between month-end and current) and never blends the two.
+
+**Deploying changes:** the SPR tab lives in `html_template.html` and the
+readers live in `amkad_ar_report.ts` — deploy them exactly as in 4A and 4B.
 
 ---
 
