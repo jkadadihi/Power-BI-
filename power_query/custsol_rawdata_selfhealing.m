@@ -71,9 +71,10 @@ let
     // ---------------------------------------------------------------
     // 2. The source files that could fill a gap.
     // ---------------------------------------------------------------
-    SrcFiles = Table.SelectRows(AllFiles,
+    SrcFiles = try Table.SelectRows(AllFiles,
         each Text.Contains([Folder Path], "Cust_Sol Daily File", Comparer.OrdinalIgnoreCase)
-             and (Text.Lower([Extension]) = ".xlsx" or Text.Lower([Extension]) = ".xlsm")),
+             and (Text.Lower([Extension]) = ".xlsx" or Text.Lower([Extension]) = ".xlsm"))
+        otherwise #table({"Content", "Name"}, {}),
 
     // Read each source file's own Report Date (first data row, column 1). Every
     // row in a source file shares one report date, so one read settles it.
@@ -132,8 +133,19 @@ let
         in
             mapped,
 
-    Repaired = if Table.RowCount(MissingFiles) = 0 then null else
-        Table.Combine(List.Transform(MissingFiles[Content], each MapOne(_))),
+    // BEST EFFORT. The repair opens one extra file per missing day, so it makes
+    // far more network calls than the old single-file query did. A transient
+    // SharePoint failure on any one of them must NOT take down RawData: a
+    // backfill is a nice-to-have, the history is not. Each file is wrapped
+    // individually, so one bad download costs that day and nothing else, and if
+    // the whole repair fails the query still returns the history unchanged.
+    MappedOrNull = List.Transform(MissingFiles[Content],
+        each try MapOne(_) otherwise null),
+    UsableRepairs = List.RemoveNulls(MappedOrNull),
+
+    Repaired = if Table.RowCount(MissingFiles) = 0 or List.IsEmpty(UsableRepairs)
+        then null
+        else try Table.Combine(UsableRepairs) otherwise null,
 
     // ---------------------------------------------------------------
     // 4. Combine. Columns present in History but not in the repaired rows
