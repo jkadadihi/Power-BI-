@@ -1339,8 +1339,11 @@ function main(workbook: ExcelScript.Workbook) {
       </table>
     </div>` : "";
 
-  const sameMonthGT90CustomerTable = buildCustomerMoMTable("gt90", "> 90 days (%) — Same-Month YoY Customer View");
-  const sameMonthGT60CustomerTable = buildCustomerMoMTable("gt60", "> 60 days (%) — Same-Month YoY Customer View");
+  // These use latestThreeMonths — the three most recent CONSECUTIVE months —
+  // so they are month-over-month, not year-over-year. The portfolio-level
+  // Same-Month YoY table above is the one that compares across years.
+  const sameMonthGT90CustomerTable = buildCustomerMoMTable("gt90", "> 90 days (%) — Last 3 Months by Customer");
+  const sameMonthGT60CustomerTable = buildCustomerMoMTable("gt60", "> 60 days (%) — Last 3 Months by Customer");
 
   const countryOptions = Object.keys(countryData).sort();
   const customerOptions = Object.keys(customerData).sort();
