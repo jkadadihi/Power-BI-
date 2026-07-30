@@ -1339,11 +1339,12 @@ function main(workbook: ExcelScript.Workbook) {
       </table>
     </div>` : "";
 
-  // These use latestThreeMonths — the three most recent CONSECUTIVE months —
-  // so they are month-over-month, not year-over-year. The portfolio-level
-  // Same-Month YoY table above is the one that compares across years.
-  const sameMonthGT90CustomerTable = buildCustomerMoMTable("gt90", "> 90 days (%) — Last 3 Months by Customer");
-  const sameMonthGT60CustomerTable = buildCustomerMoMTable("gt60", "> 60 days (%) — Last 3 Months by Customer");
+  // NOTE: there used to be a second pair of customer tables here labelled
+  // "Same-Month YoY". They were the same buildCustomerMoMTable calls as
+  // gt90CustomerTable / gt60CustomerTable above, over the same three
+  // consecutive months, so the Customers tab rendered each table twice under
+  // two different titles. The portfolio-level Same-Month YoY table on the
+  // Trends tab is the genuine year-over-year comparison.
 
   const countryOptions = Object.keys(countryData).sort();
   const customerOptions = Object.keys(customerData).sort();
@@ -1483,8 +1484,6 @@ function main(workbook: ExcelScript.Workbook) {
     GT90CustomerTable: gt90CustomerTable,
     GT60CustomerTable: gt60CustomerTable,
     SameMonthYoYTable: sameMonthYoYTable,
-    SameMonthGT90CustomerTable: sameMonthGT90CustomerTable,
-    SameMonthGT60CustomerTable: sameMonthGT60CustomerTable,
     CountrySummaryTable: countrySummaryTable,
     TopRiskCustomersTable: topRiskCustomersTable,
     TopUACCustomersTable: topUACCustomersTable,
