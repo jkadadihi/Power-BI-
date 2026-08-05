@@ -48,23 +48,43 @@
 // PARAMETER (Query Editor > Manage Parameters):
 //   SharePointSite_Url  e.g. "https://dpdhl.sharepoint.com/teams/EXP-USQIA-BS33384_AMKAD"
 //
-// The report month is auto-calculated (see ReportMonthName below) as LAST
-// month, since a month is closed during the following month. So there is no
-// month parameter to advance - just refresh. To force a specific month
-// (re-run an old month, or a late close), replace the ReportMonthName line
-// with a literal, e.g.  ReportMonthName = "June 2026",
+// The report month is discovered, not calculated: the query takes the newest
+// month folder that actually contains a Debits file (see LatestMonth below).
+// So there is no month parameter to advance - just refresh. Deriving it from
+// today's date instead looks correct but breaks silently, returning zero rows
+// whenever close timing slips past the month boundary or the next month's
+// folder does not exist yet. To force a specific month (re-running an old
+// close), replace the LatestMonth line with a literal date.
 
 let
-    // Auto-pick LAST month's folder. In July 2026 this yields "June 2026".
-    ReportMonthName = Date.ToText(Date.AddMonths(DateTime.Date(DateTime.LocalNow()), -1), "MMMM yyyy", "en-US"),
-
     Source = SharePoint.Files(SharePointSite_Url, [ApiVersion = 15]),
 
-    // Narrow to the ONE Debits file in that month's folder.
-    ThisMonthFile = Table.SelectRows(Source,
-        each Text.Contains([Folder Path], ReportMonthName)
-             and (Text.EndsWith([Extension], ".xlsx") or Text.EndsWith([Extension], ".xlsm"))
+    // Every Debits file across all month folders. The file name is identical
+    // each month, so the month comes from the FOLDER, not the file name.
+    AllDebitsFiles = Table.SelectRows(Source,
+        each (Text.EndsWith([Extension], ".xlsx") or Text.EndsWith([Extension], ".xlsm"))
              and Text.Contains([Name], "Debits", Comparer.OrdinalIgnoreCase)),
+
+    // Parse the month from the last folder segment (".../Qtr 2/June 2026/").
+    AddFolderMonth = Table.AddColumn(AllDebitsFiles, "folder_month",
+        each let
+                segments = List.Select(Text.Split(Text.TrimEnd([Folder Path], "/"), "/"), (s) => s <> ""),
+                lastSegment = List.Last(segments, "")
+             in
+                try Date.FromText(lastSegment, [Format = "MMMM yyyy", Culture = "en-US"]) otherwise null,
+        type date),
+
+    DatedDebitsFiles = Table.SelectRows(AddFolderMonth, each [folder_month] <> null),
+
+    // Take the newest month that ACTUALLY has a Debits file, rather than
+    // computing "last month" from today's date. Close timing slips - holidays,
+    // late country closes, running in the same month - and a calendar-derived
+    // month silently returns zero rows whenever the folder is not there yet.
+    // To force a specific month (re-run an old close), replace the line below
+    // with a literal, e.g.  LatestMonth = #date(2026, 6, 1),
+    LatestMonth = List.Max(DatedDebitsFiles[folder_month]),
+
+    ThisMonthFile = Table.SelectRows(DatedDebitsFiles, each [folder_month] = LatestMonth),
 
     AddData = Table.AddColumn(ThisMonthFile, "Data", each Excel.Workbook([Content], null, true)),
     ExpandSheets = Table.ExpandTableColumn(AddData, "Data", {"Item", "Kind", "Data"}, {"Item", "Kind", "Data"}),
